@@ -49,7 +49,7 @@ class ShareActivity : Activity() {
     }
 
     private fun extractUrl(text: String): String {
-        val matcher = Pattern.compile("https?://\S+").matcher(text)
+        val matcher = Regex("""https?://\S+""").toPattern().matcher(text)
         val extracted = if (matcher.find()) matcher.group() else text.trim()
 
         if (extracted.contains("share.google")) {
