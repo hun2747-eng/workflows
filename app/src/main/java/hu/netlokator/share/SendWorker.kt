@@ -84,7 +84,7 @@ class SendWorker(
         }
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.drawable.ic_dialog_info)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
