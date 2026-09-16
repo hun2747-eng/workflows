@@ -2,27 +2,36 @@ package hu.netlokator.share
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
 class MainActivity : Activity() {
 
-    private lateinit var editBaseUrl: EditText
-    private lateinit var editApiKey: EditText
     private val PICK_JSON_CODE = 1001
+    private lateinit var rootContainer: LinearLayout
+    private val prefs by lazy { getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,43 +42,85 @@ class MainActivity : Activity() {
             }
         }
 
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 64, 48, 48)
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
         }
+
+        rootContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 64, 48, 64)
+        }
+        scroll.addView(rootContainer)
+        setContentView(scroll)
+
+        val isLoggedIn = prefs.getBoolean("is_logged_in", false)
+        val hasKey = prefs.getString("apiKey", "")?.isNotEmpty() == true
+        if (isLoggedIn && hasKey) {
+            showStartView()
+        } else {
+            showLoginView()
+        }
+    }
+
+    private fun showLoginView() {
+        rootContainer.removeAllViews()
 
         val title = TextView(this).apply {
-            text = "NetLokátor Beállítások"
-            textSize = 22f
+            text = "NetLokátor Bejelentkezés"
+            textSize = 24f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 16)
+        }
+        rootContainer.addView(title)
+
+        val desc = TextView(this).apply {
+            text = "Add meg a NetLokátor API-kulcsot és az alap URL-t, vagy töltsd be a konfigurációs JSON-fájlt."
+            textSize = 14f
             setPadding(0, 0, 0, 32)
         }
-        layout.addView(title)
+        rootContainer.addView(desc)
 
-        val prefs = getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE)
-
-        editBaseUrl = EditText(this).apply {
+        val editBaseUrl = EditText(this).apply {
             hint = "Alap URL (pl. https://kereso.netlokator.hu)"
-            setText(prefs.getString("baseUrl", ""))
+            setText(prefs.getString("baseUrl", "https://kereso.netlokator.hu"))
+            setPadding(24, 24, 24, 24)
         }
-        layout.addView(editBaseUrl)
+        rootContainer.addView(editBaseUrl)
 
-        editApiKey = EditText(this).apply {
+        val editApiKey = EditText(this).apply {
             hint = "X-API-Key"
             setText(prefs.getString("apiKey", ""))
+            setPadding(24, 24, 24, 24)
         }
-        layout.addView(editApiKey)
+        rootContainer.addView(editApiKey)
 
-        val btnSave = Button(this).apply {
-            text = "Mentés"
+        val btnLogin = Button(this).apply {
+            text = "Bejelentkezés"
+            setPadding(0, 32, 0, 32)
             setOnClickListener {
+                val url = editBaseUrl.text.toString().trim()
+                val key = editApiKey.text.toString().trim()
+
+                if (url.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "Kérlek add meg az alap URL-t!", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                if (key.isEmpty()) {
+                    Toast.makeText(this@MainActivity, "Kérlek add meg az API-kulcsot!", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
                 prefs.edit()
-                    .putString("baseUrl", editBaseUrl.text.toString().trim())
-                    .putString("apiKey", editApiKey.text.toString().trim())
+                    .putString("baseUrl", url)
+                    .putString("apiKey", key)
+                    .putBoolean("is_logged_in", true)
                     .apply()
-                Toast.makeText(this@MainActivity, "Beállítások elmentve!", Toast.LENGTH_SHORT).show()
+
+                Toast.makeText(this@MainActivity, "Sikeres bejelentkezés!", Toast.LENGTH_SHORT).show()
+                showStartView()
             }
         }
-        layout.addView(btnSave)
+        rootContainer.addView(btnLogin)
 
         val btnImport = Button(this).apply {
             text = "Konfiguráció importálása JSON fájlból"
@@ -81,9 +132,96 @@ class MainActivity : Activity() {
                 startActivityForResult(intent, PICK_JSON_CODE)
             }
         }
-        layout.addView(btnImport)
+        rootContainer.addView(btnImport)
+    }
 
-        setContentView(layout)
+    private fun showStartView() {
+        rootContainer.removeAllViews()
+
+        val title = TextView(this).apply {
+            text = "NetLokátor"
+            textSize = 24f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 8)
+        }
+        rootContainer.addView(title)
+
+        val savedUrl = prefs.getString("baseUrl", "") ?: ""
+        val statusText = TextView(this).apply {
+            text = "✓ Bejelentkezve ($savedUrl)"
+            textSize = 13f
+            setTextColor(Color.parseColor("#15803D"))
+            setPadding(0, 0, 0, 36)
+        }
+        rootContainer.addView(statusText)
+
+        val label = TextView(this).apply {
+            text = "Indexelendő weboldal címe:"
+            textSize = 16f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 0, 0, 12)
+        }
+        rootContainer.addView(label)
+
+        val editTargetUrl = EditText(this).apply {
+            hint = "https://example.com/cikk"
+            setPadding(24, 28, 24, 28)
+        }
+        rootContainer.addView(editTargetUrl)
+
+        val btnPaste = Button(this).apply {
+            text = "Beillesztés a vágólapról"
+            setOnClickListener {
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                if (clipboard.hasPrimaryClip() && clipboard.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true) {
+                    val item = clipboard.primaryClip?.getItemAt(0)
+                    val text = item?.text?.toString() ?: ""
+                    if (text.isNotEmpty()) {
+                        editTargetUrl.setText(text)
+                    }
+                }
+            }
+        }
+        rootContainer.addView(btnPaste)
+
+        val btnStart = Button(this).apply {
+            text = "START – URL KÜLDÉSE"
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, 36, 0, 36)
+            setOnClickListener {
+                val targetUrl = editTargetUrl.text.toString().trim()
+                if (targetUrl.isEmpty() || !targetUrl.startsWith("http")) {
+                    Toast.makeText(this@MainActivity, "Kérlek adj meg egy érvényes weboldal címet (http/https)!", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val sendWork = OneTimeWorkRequestBuilder<SendWorker>()
+                    .setInputData(workDataOf("TARGET_URL" to targetUrl))
+                    .build()
+
+                WorkManager.getInstance(this@MainActivity).enqueue(sendWork)
+                Toast.makeText(this@MainActivity, "Küldés elindítva!", Toast.LENGTH_SHORT).show()
+                editTargetUrl.setText("")
+            }
+        }
+        rootContainer.addView(btnStart)
+
+        val shareInfo = TextView(this).apply {
+            text = "💡 Tipp: A Chrome vagy bármely böngésző 'Megosztás' (Share) menüjéből is közvetlenül küldhetsz oldalakat a 'Send to Netlokator' opcióval."
+            textSize = 13f
+            setPadding(0, 36, 0, 36)
+        }
+        rootContainer.addView(shareInfo)
+
+        val btnLogout = Button(this).apply {
+            text = "Kijelentkezés / Beállítások módosítása"
+            setOnClickListener {
+                prefs.edit().putBoolean("is_logged_in", false).apply()
+                showLoginView()
+            }
+        }
+        rootContainer.addView(btnLogout)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -97,15 +235,14 @@ class MainActivity : Activity() {
                     val apiKey = json.optString("apiKey", "")
 
                     if (baseUrl.isNotEmpty() || apiKey.isNotEmpty()) {
-                        if (baseUrl.isNotEmpty()) editBaseUrl.setText(baseUrl)
-                        if (apiKey.isNotEmpty()) editApiKey.setText(apiKey)
-
-                        getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE).edit()
-                            .putString("baseUrl", editBaseUrl.text.toString().trim())
-                            .putString("apiKey", editApiKey.text.toString().trim())
+                        prefs.edit()
+                            .putString("baseUrl", baseUrl.ifEmpty { "https://kereso.netlokator.hu" })
+                            .putString("apiKey", apiKey)
+                            .putBoolean("is_logged_in", true)
                             .apply()
 
-                        Toast.makeText(this, "Sikeres importálás és mentés!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Sikeres importálás és bejelentkezés!", Toast.LENGTH_SHORT).show()
+                        showStartView()
                     } else {
                         Toast.makeText(this, "A JSON nem tartalmazott 'baseUrl' vagy 'apiKey' kulcsot.", Toast.LENGTH_LONG).show()
                     }
