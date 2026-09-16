@@ -3,6 +3,7 @@ package hu.netlokator.share
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
@@ -22,10 +23,12 @@ class SendWorker(
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
         .build()
 
     override suspend fun doWork(): Result {
-        val targetUrl = inputData.getString("TARGET_URL") ?: return Result.failure()
+        val rawUrl = inputData.getString("TARGET_URL") ?: return Result.failure()
 
         val prefs = context.getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE)
         val baseUrl = prefs.getString("baseUrl", "")?.trimEnd('/') ?: ""
@@ -35,6 +38,8 @@ class SendWorker(
             showNotification("NetLokátor hiba", "Hiányzó API-kulcs vagy alap URL. Nyisd meg az alkalmazást.")
             return Result.failure()
         }
+
+        val targetUrl = resolveOriginalUrl(rawUrl)
 
         val endpoint = "$baseUrl/api/extension/index-url"
         val payload = JSONObject().apply { put("url", targetUrl) }.toString()
@@ -57,7 +62,7 @@ class SendWorker(
                 }
 
                 if (response.isSuccessful) {
-                    showNotification("NetLokátor", serverMsg)
+                    showNotification("NetLokátor", "$serverMsg\n$targetUrl")
                     Result.success()
                 } else {
                     showNotification("NetLokátor hiba", "$serverMsg (${response.code})")
@@ -68,6 +73,48 @@ class SendWorker(
             showNotification("NetLokátor kapcsolati hiba", e.localizedMessage ?: "Nem érhető el a szerver.")
             Result.retry()
         }
+    }
+
+    private fun resolveOriginalUrl(url: String): String {
+        try {
+            val uri = Uri.parse(url)
+            val embedded = uri.getQueryParameter("url") ?: uri.getQueryParameter("q")
+            if (!embedded.isNullOrEmpty() && (embedded.startsWith("http://") || embedded.startsWith("https://"))) {
+                return resolveOriginalUrl(embedded)
+            }
+        } catch (_: Exception) {}
+
+        if (url.contains("share.google") || url.contains("goo.gl") || url.contains("t.co") || url.contains("bit.ly")) {
+            try {
+                val headReq = Request.Builder()
+                    .url(url)
+                    .head()
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                    .build()
+
+                client.newCall(headReq).execute().use { resp ->
+                    val finalUrl = resp.request.url.toString()
+                    if (finalUrl.isNotEmpty() && !finalUrl.contains("share.google")) {
+                        return finalUrl
+                    }
+                }
+
+                val getReq = Request.Builder()
+                    .url(url)
+                    .get()
+                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                    .build()
+
+                client.newCall(getReq).execute().use { resp ->
+                    val finalUrl = resp.request.url.toString()
+                    if (finalUrl.isNotEmpty() && !finalUrl.contains("share.google")) {
+                        return finalUrl
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        return url
     }
 
     private fun showNotification(title: String, message: String) {
