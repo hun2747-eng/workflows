@@ -17,6 +17,7 @@ import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.UnderlineSpan
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -41,7 +42,7 @@ class MainActivity : Activity() {
     private lateinit var rootContainer: LinearLayout
     private var historyContainer: LinearLayout? = null
     private val prefs by lazy { getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE) }
-    private val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
+    private val dateFormat = SimpleDateFormat("yyyy.MM.dd. HH:mm:ss", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,6 +88,7 @@ class MainActivity : Activity() {
             text = "NetLokátor Bejelentkezés"
             textSize = 24f
             setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F172A"))
             setPadding(0, 0, 0, 16)
         }
         rootContainer.addView(title)
@@ -94,6 +96,7 @@ class MainActivity : Activity() {
         val desc = TextView(this).apply {
             text = "Add meg a NetLokátor API-kulcsot és az alap URL-t, vagy töltsd be a konfigurációs JSON-fájlt."
             textSize = 14f
+            setTextColor(Color.parseColor("#475569"))
             setPadding(0, 0, 0, 32)
         }
         rootContainer.addView(desc)
@@ -132,7 +135,7 @@ class MainActivity : Activity() {
                     .putString("baseUrl", url)
                     .putString("apiKey", key)
                     .putBoolean("is_logged_in", true)
-                    .apply()
+                    .commit()
 
                 Toast.makeText(this@MainActivity, "Sikeres bejelentkezés!", Toast.LENGTH_SHORT).show()
                 showStartView()
@@ -151,15 +154,20 @@ class MainActivity : Activity() {
             }
         }
         rootContainer.addView(btnImport)
+
+        // Attach history section so it is visible even on the login screen!
+        setupHistorySection(rootContainer)
     }
 
     private fun showStartView() {
+        historyContainer = null
         rootContainer.removeAllViews()
 
         val title = TextView(this).apply {
             text = "NetLokátor"
             textSize = 24f
             setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F172A"))
             setPadding(0, 0, 0, 8)
         }
         rootContainer.addView(title)
@@ -169,7 +177,7 @@ class MainActivity : Activity() {
             text = "✓ Bejelentkezve ($savedUrl)"
             textSize = 13f
             setTextColor(Color.parseColor("#15803D"))
-            setPadding(0, 0, 0, 36)
+            setPadding(0, 0, 0, 32)
         }
         rootContainer.addView(statusText)
 
@@ -177,6 +185,7 @@ class MainActivity : Activity() {
             text = "Indexelendő weboldal címe:"
             textSize = 16f
             setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#1E293B"))
             setPadding(0, 0, 0, 12)
         }
         rootContainer.addView(label)
@@ -229,8 +238,9 @@ class MainActivity : Activity() {
         rootContainer.addView(btnStart)
 
         val shareInfo = TextView(this).apply {
-            text = "💡 Tipp: A Chrome vagy bármely böngésző 'Megosztás' (Share) menüjéből is közvetlenül küldhetsz oldalakat a 'Send to Netlokator' opcióval."
+            text = "💡 Tipp: A Chrome böngésző 'Megosztás' (Share) menüjéből a 'Send to Netlokator' opcióval azonnal beküldheted az aktuális oldalt a háttérben."
             textSize = 13f
+            setTextColor(Color.parseColor("#475569"))
             setPadding(0, 24, 0, 24)
         }
         rootContainer.addView(shareInfo)
@@ -238,23 +248,25 @@ class MainActivity : Activity() {
         val btnLogout = Button(this).apply {
             text = "Kijelentkezés / Beállítások módosítása"
             setOnClickListener {
-                prefs.edit().putBoolean("is_logged_in", false).apply()
+                prefs.edit().putBoolean("is_logged_in", false).commit()
                 showLoginView()
             }
         }
         rootContainer.addView(btnLogout)
 
-        // --- SUBMITTED LINKS SECTION BELOW THE BUTTON ---
-        val divider = TextView(this).apply {
-            text = ""
-            setHeight(4)
-            setBackgroundColor(Color.parseColor("#E2E8F0"))
+        // Attach history section directly below logout button
+        setupHistorySection(rootContainer)
+    }
+
+    private fun setupHistorySection(parent: LinearLayout) {
+        val divider = View(this).apply {
+            setBackgroundColor(Color.parseColor("#CBD5E1"))
             val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 4).apply {
                 setMargins(0, 48, 0, 32)
             }
             layoutParams = params
         }
-        rootContainer.addView(divider)
+        parent.addView(divider)
 
         val historyHeaderLayout = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -263,9 +275,10 @@ class MainActivity : Activity() {
         }
 
         val historyTitle = TextView(this).apply {
-            text = "Beküldött linkek előzményei"
+            text = "📋 Beküldött linkek előzményei"
             textSize = 18f
             setTypeface(null, Typeface.BOLD)
+            setTextColor(Color.parseColor("#0F172A"))
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         historyHeaderLayout.addView(historyTitle)
@@ -280,12 +293,13 @@ class MainActivity : Activity() {
             }
         }
         historyHeaderLayout.addView(btnClearHistory)
-        rootContainer.addView(historyHeaderLayout)
+        parent.addView(historyHeaderLayout)
 
-        historyContainer = LinearLayout(this).apply {
+        val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
-        rootContainer.addView(historyContainer)
+        historyContainer = container
+        parent.addView(container)
 
         renderHistoryItems()
     }
@@ -296,26 +310,61 @@ class MainActivity : Activity() {
 
         val submissions = HistoryManager.getSubmissions(this)
         if (submissions.isEmpty()) {
-            val emptyView = TextView(this).apply {
-                text = "Még nincsenek beküldött linkek. Küldj egy linket a fenti mezőből vagy a böngésző megosztás menüjéből!"
-                textSize = 14f
-                setTextColor(Color.parseColor("#64748B"))
-                setPadding(0, 16, 0, 32)
+            val emptyCard = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(32, 28, 32, 28)
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#F1F5F9"))
+                    setStroke(2, Color.parseColor("#CBD5E1"))
+                    cornerRadius = 16f
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
             }
-            container.addView(emptyView)
+
+            val emptyText = TextView(this).apply {
+                text = "Még nincsenek mentett beküldések.
+
+Amikor megosztasz egy linket a Chrome-ból (Megosztás -> Send to Netlokator) vagy a fenti START gombbal, az automatikusan megjelenik itt dátum szerint rendezve."
+                textSize = 14f
+                setTextColor(Color.parseColor("#475569"))
+                setLineSpacing(4f, 1.2f)
+            }
+            emptyCard.addView(emptyText)
+
+            val btnAddSample = Button(this).apply {
+                text = "+ Teszt link hozzáadása az előzményekhez"
+                textSize = 13f
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 20, 0, 0)
+                }
+                layoutParams = params
+                setOnClickListener {
+                    HistoryManager.addSubmission(this@MainActivity, "https://netlokator.hu/minta-oldal", true)
+                    renderHistoryItems()
+                    Toast.makeText(this@MainActivity, "Minta link hozzáadva az előzményekhez!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            emptyCard.addView(btnAddSample)
+
+            container.addView(emptyCard)
             return
         }
 
         for (item in submissions) {
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(28, 24, 28, 24)
-                val bg = GradientDrawable().apply {
-                    setColor(Color.parseColor("#F8FAFC"))
-                    setStroke(2, Color.parseColor("#E2E8F0"))
+                setPadding(32, 24, 32, 24)
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor("#FFFFFF"))
+                    setStroke(2, if (item.success) Color.parseColor("#86EFAC") else Color.parseColor("#FCA5A5"))
                     cornerRadius = 16f
                 }
-                background = bg
                 val params = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -325,14 +374,38 @@ class MainActivity : Activity() {
                 layoutParams = params
             }
 
+            val topRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
             val dateText = TextView(this).apply {
                 val formattedDate = dateFormat.format(Date(item.timestamp))
-                text = "🕒 $formattedDate"
-                textSize = 12f
-                setTextColor(Color.parseColor("#64748B"))
-                setPadding(0, 0, 0, 8)
+                text = "📅 $formattedDate"
+                textSize = 13f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(Color.parseColor("#334155"))
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             }
-            card.addView(dateText)
+            topRow.addView(dateText)
+
+            val statusBadge = TextView(this).apply {
+                text = if (item.success) "✓ Beküldve" else "✗ Hiba"
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(if (item.success) Color.parseColor("#15803D") else Color.parseColor("#B91C1C"))
+                setPadding(16, 6, 16, 6)
+                background = GradientDrawable().apply {
+                    setColor(if (item.success) Color.parseColor("#DCFCE7") else Color.parseColor("#FEE2E2"))
+                    cornerRadius = 12f
+                }
+            }
+            topRow.addView(statusBadge)
+            card.addView(topRow)
 
             val urlText = TextView(this).apply {
                 val spannable = SpannableString(item.url).apply {
@@ -340,8 +413,9 @@ class MainActivity : Activity() {
                 }
                 text = spannable
                 textSize = 15f
-                setTextColor(Color.parseColor("#2563EB"))
+                setTextColor(Color.parseColor("#1D4ED8"))
                 setTypeface(null, Typeface.BOLD)
+                setPadding(0, 16, 0, 8)
                 isClickable = true
                 isFocusable = true
                 setOnClickListener {
@@ -349,18 +423,25 @@ class MainActivity : Activity() {
                         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url))
                         startActivity(browserIntent)
                     } catch (e: Exception) {
-                        Toast.makeText(this@MainActivity, "Nem sikerült megnyitni a böngészőt: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Hiba: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
                 setOnLongClickListener {
                     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                     val clip = ClipData.newPlainText("NetLokátor URL", item.url)
                     clipboard.setPrimaryClip(clip)
-                    Toast.makeText(this@MainActivity, "Link vágólapra másolva!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Link másolva a vágólapra!", Toast.LENGTH_SHORT).show()
                     true
                 }
             }
             card.addView(urlText)
+
+            val hintText = TextView(this).apply {
+                text = "👆 Érintsd meg a megnyitáshoz, hosszan nyomva másolás"
+                textSize = 11f
+                setTextColor(Color.parseColor("#64748B"))
+            }
+            card.addView(hintText)
 
             container.addView(card)
         }
@@ -381,7 +462,7 @@ class MainActivity : Activity() {
                             .putString("baseUrl", baseUrl.ifEmpty { "https://kereso.netlokator.hu" })
                             .putString("apiKey", apiKey)
                             .putBoolean("is_logged_in", true)
-                            .apply()
+                            .commit()
 
                         Toast.makeText(this, "Sikeres importálás és bejelentkezés!", Toast.LENGTH_SHORT).show()
                         showStartView()
