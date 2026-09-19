@@ -83,7 +83,7 @@ public class NetworkService {
         }
         let checkKeys = ["url", "q", "dest", "target", "link"]
         for key in checkKeys {
-            if let match = queryItems.first(where: { bash.name.lowercased() == key })?.value {
+            if let match = queryItems.first(where: { $0.name.lowercased() == key })?.value {
                 if match.hasPrefix("http://") || match.hasPrefix("https://") {
                     return unwrapParam(from: match)
                 }
