@@ -69,9 +69,6 @@ class SendWorker(
                     HistoryManager.addSubmission(context, targetUrl, false)
                     showNotification("NetLokátor hiba", "$serverMsg (${response.code})")
                     Result.failure()
-                } else {
-                    showNotification("NetLokátor hiba", "$serverMsg (${response.code})")
-                    Result.failure()
                 }
             }
         } catch (e: Exception) {
