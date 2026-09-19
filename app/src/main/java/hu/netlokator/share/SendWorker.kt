@@ -35,6 +35,7 @@ class SendWorker(
         val apiKey = prefs.getString("apiKey", "") ?: ""
 
         if (baseUrl.isEmpty() || apiKey.isEmpty()) {
+            HistoryManager.addSubmission(context, rawUrl, false)
             showNotification("NetLokátor hiba", "Hiányzó API-kulcs vagy alap URL. Nyisd meg az alkalmazást.")
             return Result.failure()
         }
@@ -72,6 +73,7 @@ class SendWorker(
                 }
             }
         } catch (e: Exception) {
+            HistoryManager.addSubmission(context, targetUrl, false)
             showNotification("NetLokátor kapcsolati hiba", e.localizedMessage ?: "Nem érhető el a szerver.")
             Result.retry()
         }
