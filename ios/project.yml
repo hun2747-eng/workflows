@@ -20,6 +20,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: NetLokator
+    dependencies:
+      - target: NetLokatorShare
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app
