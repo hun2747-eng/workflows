@@ -16,12 +16,13 @@ cd ios
 echo "Generating Xcode project..."
 xcodegen generate
 
-# Ensure objectVersion is 56 (Xcode 14/15 compatible)
+# Ensure objectVersion is 56 (Xcode 14/15/16 compatible)
 if [ -f "NetLokator.xcodeproj/project.pbxproj" ]; then
     sed -i '' -E 's/objectVersion = [0-9]+;/objectVersion = 56;/g' NetLokator.xcodeproj/project.pbxproj || true
 fi
 
 echo "Building Archive..."
+rm -rf build
 xcodebuild archive \
   -project NetLokator.xcodeproj \
   -scheme NetLokator \
@@ -34,7 +35,10 @@ xcodebuild archive \
 
 echo "Creating IPA..."
 mkdir -p build/Payload
-cp -r build/NetLokator.xcarchive/Products/Applications/NetLokator.app build/Payload/
+cp -R build/NetLokator.xcarchive/Products/Applications/NetLokator.app build/Payload/
+find build/Payload -name ".DS_Store" -delete 2>/dev/null || true
+
 cd build
-zip -r NetLokator-unsigned.ipa Payload
+# Use zip -qry for compliant iOS packaging preserving symlinks and bundle structure
+zip -qry NetLokator-unsigned.ipa Payload
 echo "=== NetLokator-unsigned.ipa ready at ios/build/NetLokator-unsigned.ipa ==="
