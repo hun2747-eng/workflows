@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var historyStore = HistoryStore.shared
-    @State private var baseUrlInput = NetworkService.shared.baseUrl
+    @State private var baseUrlInput = NetworkService.shared.baseUrl.isEmpty ? "https://netlokator.hu" : NetworkService.shared.baseUrl
     @State private var apiKeyInput = NetworkService.shared.apiKey
     @State private var urlInput = ""
     @State private var isSending = false
@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var statusIsError = false
     @State private var isLoggedIn = NetworkService.shared.isLoggedIn
     @State private var showSettings = false
+    @State private var settingsSuccessMsg = ""
+    @State private var settingsErrorMsg = ""
     
     var body: some View {
         NavigationView {
@@ -33,6 +35,10 @@ struct ContentView: View {
             .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .onAppear {
                 historyStore.loadHistory()
+                if baseUrlInput.isEmpty {
+                    baseUrlInput = "https://netlokator.hu"
+                }
+                isLoggedIn = NetworkService.shared.isLoggedIn
             }
         }
     }
@@ -53,8 +59,17 @@ struct ContentView: View {
     
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Beállítások / Bejelentkezés")
-                .font(.headline)
+            HStack {
+                Text(isLoggedIn ? "Beállítások módosítása" : "Bejelentkezés / Beállítások")
+                    .font(.headline)
+                Spacer()
+                if isLoggedIn {
+                    Button("Bezárás") {
+                        showSettings = false
+                    }
+                    .font(.footnote)
+                }
+            }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text("Base URL:").font(.caption).foregroundColor(.secondary)
@@ -65,11 +80,22 @@ struct ContentView: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                Text("X-API-Key:").font(.caption).foregroundColor(.secondary)
-                SecureField("Add meg az API-kulcsot", text: $apiKeyInput)
+                Text("X-API-Key (kötelező):").font(.caption).foregroundColor(.secondary)
+                TextField("Add meg a NetLokátor API-kulcsot", text: $apiKeyInput)
                     .textFieldStyle(.roundedBorder)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
+            }
+            
+            if !settingsErrorMsg.isEmpty {
+                Text(settingsErrorMsg)
+                    .font(.footnote)
+                    .foregroundColor(.red)
+            }
+            if !settingsSuccessMsg.isEmpty {
+                Text(settingsSuccessMsg)
+                    .font(.footnote)
+                    .foregroundColor(.green)
             }
             
             Button(action: saveSettings) {
@@ -83,6 +109,19 @@ struct ContentView: View {
                 .background(Color.blue)
                 .foregroundColor(.white)
                 .cornerRadius(8)
+            }
+            
+            if isLoggedIn {
+                Button(action: logoutAction) {
+                    HStack {
+                        Spacer()
+                        Text("Kijelentkezés")
+                            .font(.subheadline)
+                            .foregroundColor(.red)
+                        Spacer()
+                    }
+                    .padding(.top, 4)
+                }
             }
         }
         .padding()
@@ -224,10 +263,33 @@ struct ContentView: View {
     }
     
     private func saveSettings() {
-        NetworkService.shared.baseUrl = baseUrlInput
-        NetworkService.shared.apiKey = apiKeyInput
-        isLoggedIn = NetworkService.shared.isLoggedIn
+        let cleanBase = baseUrlInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalBase = cleanBase.isEmpty ? "https://netlokator.hu" : cleanBase
+        let cleanKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if cleanKey.isEmpty {
+            settingsErrorMsg = "Kérlek add meg a NetLokátor API-kulcsot!"
+            settingsSuccessMsg = ""
+            return
+        }
+        
+        NetworkService.shared.baseUrl = finalBase
+        NetworkService.shared.apiKey = cleanKey
+        baseUrlInput = finalBase
+        apiKeyInput = cleanKey
+        
+        settingsErrorMsg = ""
+        settingsSuccessMsg = "Sikeres mentés és bejelentkezés!"
+        isLoggedIn = true
         showSettings = false
+    }
+    
+    private func logoutAction() {
+        NetworkService.shared.apiKey = ""
+        apiKeyInput = ""
+        isLoggedIn = false
+        settingsSuccessMsg = ""
+        settingsErrorMsg = ""
     }
     
     private func pasteFromClipboard() {
