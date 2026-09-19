@@ -23,8 +23,8 @@ public class HistoryStore: ObservableObject {
     
     @Published public var links: [SubmittedLink] = []
     
-    private var userDefaults: UserDefaults {
-        UserDefaults(suiteName: appGroupID) ?? UserDefaults.standard
+    private var groupDefaults: UserDefaults? {
+        UserDefaults(suiteName: appGroupID)
     }
     
     public init() {
@@ -32,7 +32,8 @@ public class HistoryStore: ObservableObject {
     }
     
     public func loadHistory() {
-        guard let data = userDefaults.data(forKey: historyKey) else {
+        let rawData = UserDefaults.standard.data(forKey: historyKey) ?? groupDefaults?.data(forKey: historyKey)
+        guard let data = rawData else {
             self.links = []
             return
         }
@@ -46,35 +47,33 @@ public class HistoryStore: ObservableObject {
     }
     
     public func addLink(url: String, status: String, message: String) {
-        loadHistory()
-        let newEntry = SubmittedLink(url: url, timestamp: Date(), status: status, message: message)
-        var updated = self.links
-        // Avoid duplicate within 3 seconds
-        if let first = updated.first, first.url == url, abs(first.timestamp.timeIntervalSinceNow) < 3.0 {
-            return
+        let item = SubmittedLink(url: url, status: status, message: message)
+        DispatchQueue.main.async {
+            self.links.insert(item, at: 0)
+            if self.links.count > 200 {
+                self.links = Array(self.links.prefix(200))
+            }
+            self.persist()
         }
-        updated.insert(newEntry, at: 0)
-        if updated.count > 200 {
-            updated = Array(updated.prefix(200))
-        }
-        self.links = updated
-        saveHistory()
     }
     
     public func clearHistory() {
-        self.links = []
-        userDefaults.removeObject(forKey: historyKey)
-        userDefaults.synchronize()
+        DispatchQueue.main.async {
+            self.links = []
+            self.persist()
+        }
     }
     
-    private func saveHistory() {
+    private func persist() {
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(self.links)
-            userDefaults.set(data, forKey: historyKey)
-            userDefaults.synchronize()
+            UserDefaults.standard.set(data, forKey: historyKey)
+            UserDefaults.standard.synchronize()
+            groupDefaults?.set(data, forKey: historyKey)
+            groupDefaults?.synchronize()
         } catch {
-            print("Failed to save history: \(error)")
+            print("HistoryStore persist error: \(error)")
         }
     }
 }
