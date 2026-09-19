@@ -39,7 +39,7 @@ public class HistoryStore: ObservableObject {
         do {
             let decoder = JSONDecoder()
             let decoded = try decoder.decode([SubmittedLink].self, from: data)
-            self.links = decoded.sorted(by: { bash.timestamp > .timestamp })
+            self.links = decoded.sorted(by: { $0.timestamp > $1.timestamp })
         } catch {
             self.links = []
         }
