@@ -325,9 +325,7 @@ class MainActivity : Activity() {
             }
 
             val emptyText = TextView(this).apply {
-                text = "Még nincsenek mentett beküldések.
-
-Amikor megosztasz egy linket a Chrome-ból (Megosztás -> Send to Netlokator) vagy a fenti START gombbal, az automatikusan megjelenik itt dátum szerint rendezve."
+                text = "Még nincsenek mentett beküldések.\n\nAmikor megosztasz egy linket a Chrome-ból (Megosztás -> Send to Netlokator) vagy a fenti START gombbal, az automatikusan megjelenik itt dátum szerint rendezve."
                 textSize = 14f
                 setTextColor(Color.parseColor("#475569"))
                 setLineSpacing(4f, 1.2f)
