@@ -3,30 +3,34 @@ set -e
 
 echo "=== Building NetLokator iOS 17 IPA ==="
 
-# If Xcode 16 is available, switch to it, otherwise keep current or find best matching
-if [ -d "/Applications/Xcode_16.0.app" ]; then
-    export DEVELOPER_DIR="/Applications/Xcode_16.0.app/Contents/Developer"
-elif [ -d "/Applications/Xcode_16.app" ]; then
-    export DEVELOPER_DIR="/Applications/Xcode_16.app/Contents/Developer"
-elif [ -d "/Applications/Xcode_15.4.app" ]; then
-    export DEVELOPER_DIR="/Applications/Xcode_15.4.app/Contents/Developer"
+# Auto-detect latest available Xcode in runner
+LATEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
+if [ -n "$LATEST_XCODE" ]; then
+    export DEVELOPER_DIR="$LATEST_XCODE/Contents/Developer"
 fi
 
-echo "Using Xcode at: "
+echo "Using Xcode at: $DEVELOPER_DIR"
 xcodebuild -version
-
-# Install xcodegen if missing
-if ! command -v xcodegen &> /dev/null; then
-    echo "Installing xcodegen..."
-    brew install xcodegen
-fi
 
 cd ios
 echo "Generating Xcode project..."
 xcodegen generate
 
+# Ensure objectVersion is 56 (Xcode 14/15 compatible)
+if [ -f "NetLokator.xcodeproj/project.pbxproj" ]; then
+    sed -i '' -E 's/objectVersion = [0-9]+;/objectVersion = 56;/g' NetLokator.xcodeproj/project.pbxproj || true
+fi
+
 echo "Building Archive..."
-xcodebuild archive   -project NetLokator.xcodeproj   -scheme NetLokator   -configuration Release   -destination "generic/platform=iOS"   -archivePath build/NetLokator.xcarchive   CODE_SIGNING_ALLOWED=NO   CODE_SIGNING_REQUIRED=NO   CODE_SIGN_IDENTITY=""
+xcodebuild archive \
+  -project NetLokator.xcodeproj \
+  -scheme NetLokator \
+  -configuration Release \
+  -destination "generic/platform=iOS" \
+  -archivePath build/NetLokator.xcarchive \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY=""
 
 echo "Creating IPA..."
 mkdir -p build/Payload
