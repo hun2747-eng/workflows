@@ -30,6 +30,9 @@ class ShareActivity : Activity() {
             }
 
             if (url.isNotEmpty()) {
+                // Instantly record to history so user immediately sees it when opening app
+                HistoryManager.addSubmission(applicationContext, url, success = true)
+
                 val inputData = Data.Builder()
                     .putString("TARGET_URL", url)
                     .build()
