@@ -1,4 +1,4 @@
-name: Build APK
+name: Build APK and iOS IPA
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -29,3 +29,23 @@ jobs:
         with:
           name: NetLokator-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
+
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build unsigned IPA
+        run: |
+          chmod +x ios/build_ipa.sh
+          ./ios/build_ipa.sh
+
+      - name: Upload iOS IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetLokator-iOS-IPA
+          path: ios/build/NetLokator-unsigned.ipa
