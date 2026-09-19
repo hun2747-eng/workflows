@@ -2,6 +2,7 @@ package hu.netlokator.share
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
@@ -9,8 +10,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.UnderlineSpan
 import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
@@ -26,12 +31,17 @@ import androidx.work.workDataOf
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : Activity() {
 
     private val PICK_JSON_CODE = 1001
     private lateinit var rootContainer: LinearLayout
+    private var historyContainer: LinearLayout? = null
     private val prefs by lazy { getSharedPreferences("netlokator_prefs", Context.MODE_PRIVATE) }
+    private val dateFormat = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,7 +72,15 @@ class MainActivity : Activity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (historyContainer != null) {
+            renderHistoryItems()
+        }
+    }
+
     private fun showLoginView() {
+        historyContainer = null
         rootContainer.removeAllViews()
 
         val title = TextView(this).apply {
@@ -196,6 +214,9 @@ class MainActivity : Activity() {
                     return@setOnClickListener
                 }
 
+                HistoryManager.addSubmission(this@MainActivity, targetUrl, true)
+                renderHistoryItems()
+
                 val sendWork = OneTimeWorkRequestBuilder<SendWorker>()
                     .setInputData(workDataOf("TARGET_URL" to targetUrl))
                     .build()
@@ -210,7 +231,7 @@ class MainActivity : Activity() {
         val shareInfo = TextView(this).apply {
             text = "💡 Tipp: A Chrome vagy bármely böngésző 'Megosztás' (Share) menüjéből is közvetlenül küldhetsz oldalakat a 'Send to Netlokator' opcióval."
             textSize = 13f
-            setPadding(0, 36, 0, 36)
+            setPadding(0, 24, 0, 24)
         }
         rootContainer.addView(shareInfo)
 
@@ -222,6 +243,127 @@ class MainActivity : Activity() {
             }
         }
         rootContainer.addView(btnLogout)
+
+        // --- SUBMITTED LINKS SECTION BELOW THE BUTTON ---
+        val divider = TextView(this).apply {
+            text = ""
+            setHeight(4)
+            setBackgroundColor(Color.parseColor("#E2E8F0"))
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 4).apply {
+                setMargins(0, 48, 0, 32)
+            }
+            layoutParams = params
+        }
+        rootContainer.addView(divider)
+
+        val historyHeaderLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, 16)
+        }
+
+        val historyTitle = TextView(this).apply {
+            text = "Beküldött linkek előzményei"
+            textSize = 18f
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        historyHeaderLayout.addView(historyTitle)
+
+        val btnClearHistory = Button(this).apply {
+            text = "Törlés"
+            textSize = 12f
+            setOnClickListener {
+                HistoryManager.clearSubmissions(this@MainActivity)
+                renderHistoryItems()
+                Toast.makeText(this@MainActivity, "Előzmények törölve.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        historyHeaderLayout.addView(btnClearHistory)
+        rootContainer.addView(historyHeaderLayout)
+
+        historyContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        rootContainer.addView(historyContainer)
+
+        renderHistoryItems()
+    }
+
+    private fun renderHistoryItems() {
+        val container = historyContainer ?: return
+        container.removeAllViews()
+
+        val submissions = HistoryManager.getSubmissions(this)
+        if (submissions.isEmpty()) {
+            val emptyView = TextView(this).apply {
+                text = "Még nincsenek beküldött linkek. Küldj egy linket a fenti mezőből vagy a böngésző megosztás menüjéből!"
+                textSize = 14f
+                setTextColor(Color.parseColor("#64748B"))
+                setPadding(0, 16, 0, 32)
+            }
+            container.addView(emptyView)
+            return
+        }
+
+        for (item in submissions) {
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(28, 24, 28, 24)
+                val bg = GradientDrawable().apply {
+                    setColor(Color.parseColor("#F8FAFC"))
+                    setStroke(2, Color.parseColor("#E2E8F0"))
+                    cornerRadius = 16f
+                }
+                background = bg
+                val params = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, 20)
+                }
+                layoutParams = params
+            }
+
+            val dateText = TextView(this).apply {
+                val formattedDate = dateFormat.format(Date(item.timestamp))
+                text = "🕒 $formattedDate"
+                textSize = 12f
+                setTextColor(Color.parseColor("#64748B"))
+                setPadding(0, 0, 0, 8)
+            }
+            card.addView(dateText)
+
+            val urlText = TextView(this).apply {
+                val spannable = SpannableString(item.url).apply {
+                    setSpan(UnderlineSpan(), 0, length, 0)
+                }
+                text = spannable
+                textSize = 15f
+                setTextColor(Color.parseColor("#2563EB"))
+                setTypeface(null, Typeface.BOLD)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    try {
+                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(item.url))
+                        startActivity(browserIntent)
+                    } catch (e: Exception) {
+                        Toast.makeText(this@MainActivity, "Nem sikerült megnyitni a böngészőt: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                setOnLongClickListener {
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    val clip = ClipData.newPlainText("NetLokátor URL", item.url)
+                    clipboard.setPrimaryClip(clip)
+                    Toast.makeText(this@MainActivity, "Link vágólapra másolva!", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            }
+            card.addView(urlText)
+
+            container.addView(card)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
