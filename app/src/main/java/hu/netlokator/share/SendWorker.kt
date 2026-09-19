@@ -73,20 +73,18 @@ class SendWorker(
 
                 if (response.isSuccessful) {
                     HistoryManager.addSubmission(context, targetUrl, true)
-                    showNotification("NetLokátor", "$serverMsg
-$targetUrl")
+                    showNotification("NetLokátor", serverMsg + "\n" + targetUrl)
                     Result.success()
                 } else {
                     HistoryManager.addSubmission(context, targetUrl, false)
-                    showNotification("NetLokátor hiba", "$serverMsg (${response.code})
-$targetUrl")
+                    showNotification("NetLokátor hiba", serverMsg + " (" + response.code + ")\n" + targetUrl)
                     Result.failure()
                 }
             }
         } catch (e: Exception) {
             HistoryManager.addSubmission(context, targetUrl, false)
-            showNotification("NetLokátor kapcsolati hiba", "${e.localizedMessage ?: "Nem érhető el a szerver."}
-$targetUrl")
+            val errText = e.localizedMessage ?: "Nem érhető el a szerver."
+            showNotification("NetLokátor kapcsolati hiba", errText + "\n" + targetUrl)
             Result.retry()
         }
     }
