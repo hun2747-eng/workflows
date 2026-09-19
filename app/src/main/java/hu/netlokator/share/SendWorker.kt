@@ -13,6 +13,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.net.URL
 import java.util.concurrent.TimeUnit
 
 class SendWorker(
@@ -20,11 +21,19 @@ class SendWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
-    private val client = OkHttpClient.Builder()
+    private val apiClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        .build()
+
+    // Redirect unwrapper client with followRedirects disabled so we step through 3xx Location headers
+    private val redirectClient = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .build()
 
     override suspend fun doWork(): Result {
@@ -34,13 +43,13 @@ class SendWorker(
         val baseUrl = prefs.getString("baseUrl", "")?.trimEnd('/') ?: ""
         val apiKey = prefs.getString("apiKey", "") ?: ""
 
+        val targetUrl = resolveOriginalUrl(rawUrl)
+
         if (baseUrl.isEmpty() || apiKey.isEmpty()) {
-            HistoryManager.addSubmission(context, rawUrl, false)
+            HistoryManager.addSubmission(context, targetUrl, false)
             showNotification("NetLokátor hiba", "Hiányzó API-kulcs vagy alap URL. Nyisd meg az alkalmazást.")
             return Result.failure()
         }
-
-        val targetUrl = resolveOriginalUrl(rawUrl)
 
         val endpoint = "$baseUrl/api/extension/index-url"
         val payload = JSONObject().apply { put("url", targetUrl) }.toString()
@@ -54,7 +63,7 @@ class SendWorker(
             .build()
 
         return try {
-            client.newCall(request).execute().use { response ->
+            apiClient.newCall(request).execute().use { response ->
                 val respBody = response.body?.string() ?: ""
                 val serverMsg = try {
                     JSONObject(respBody).optString("message", "Sikeres beküldés.")
@@ -64,60 +73,79 @@ class SendWorker(
 
                 if (response.isSuccessful) {
                     HistoryManager.addSubmission(context, targetUrl, true)
-                    showNotification("NetLokátor", "$serverMsg\n$targetUrl")
+                    showNotification("NetLokátor", "$serverMsg
+$targetUrl")
                     Result.success()
                 } else {
                     HistoryManager.addSubmission(context, targetUrl, false)
-                    showNotification("NetLokátor hiba", "$serverMsg (${response.code})")
+                    showNotification("NetLokátor hiba", "$serverMsg (${response.code})
+$targetUrl")
                     Result.failure()
                 }
             }
         } catch (e: Exception) {
             HistoryManager.addSubmission(context, targetUrl, false)
-            showNotification("NetLokátor kapcsolati hiba", e.localizedMessage ?: "Nem érhető el a szerver.")
+            showNotification("NetLokátor kapcsolati hiba", "${e.localizedMessage ?: "Nem érhető el a szerver."}
+$targetUrl")
             Result.retry()
         }
     }
 
-    private fun resolveOriginalUrl(url: String): String {
-        try {
-            val uri = Uri.parse(url)
-            val embedded = uri.getQueryParameter("url") ?: uri.getQueryParameter("q")
-            if (!embedded.isNullOrEmpty() && (embedded.startsWith("http://") || embedded.startsWith("https://"))) {
-                return resolveOriginalUrl(embedded)
-            }
-        } catch (_: Exception) {}
+    private fun resolveOriginalUrl(initialUrl: String): String {
+        var currentUrl = initialUrl.trim()
+        currentUrl = extractNestedParam(currentUrl)
 
-        if (url.contains("share.google") || url.contains("goo.gl") || url.contains("t.co") || url.contains("bit.ly")) {
+        var step = 0
+        while (step < 12) {
+            step++
             try {
-                val headReq = Request.Builder()
-                    .url(url)
-                    .head()
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
-                    .build()
-
-                client.newCall(headReq).execute().use { resp ->
-                    val finalUrl = resp.request.url.toString()
-                    if (finalUrl.isNotEmpty() && !finalUrl.contains("share.google")) {
-                        return finalUrl
-                    }
-                }
-
-                val getReq = Request.Builder()
-                    .url(url)
+                val req = Request.Builder()
+                    .url(currentUrl)
                     .get()
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .build()
 
-                client.newCall(getReq).execute().use { resp ->
-                    val finalUrl = resp.request.url.toString()
-                    if (finalUrl.isNotEmpty() && !finalUrl.contains("share.google")) {
-                        return finalUrl
+                val nextUrl = redirectClient.newCall(req).execute().use { resp ->
+                    val code = resp.code
+                    if (code in 300..399) {
+                        val loc = resp.header("Location")
+                        if (!loc.isNullOrEmpty()) {
+                            try {
+                                URL(URL(currentUrl), loc).toString()
+                            } catch (_: Exception) {
+                                loc
+                            }
+                        } else null
+                    } else {
+                        null
                     }
                 }
-            } catch (_: Exception) {}
+
+                if (nextUrl != null && nextUrl != currentUrl) {
+                    currentUrl = extractNestedParam(nextUrl)
+                } else {
+                    break
+                }
+            } catch (_: Exception) {
+                break
+            }
         }
 
+        return currentUrl
+    }
+
+    private fun extractNestedParam(url: String): String {
+        try {
+            val uri = Uri.parse(url)
+            val embedded = uri.getQueryParameter("url")
+                ?: uri.getQueryParameter("q")
+                ?: uri.getQueryParameter("target")
+                ?: uri.getQueryParameter("dest")
+            if (!embedded.isNullOrEmpty() && (embedded.startsWith("http://") || embedded.startsWith("https://"))) {
+                return extractNestedParam(embedded)
+            }
+        } catch (_: Exception) {}
         return url
     }
 

@@ -223,9 +223,6 @@ class MainActivity : Activity() {
                     return@setOnClickListener
                 }
 
-                HistoryManager.addSubmission(this@MainActivity, targetUrl, true)
-                renderHistoryItems()
-
                 val sendWork = OneTimeWorkRequestBuilder<SendWorker>()
                     .setInputData(workDataOf("TARGET_URL" to targetUrl))
                     .build()
@@ -233,6 +230,7 @@ class MainActivity : Activity() {
                 WorkManager.getInstance(this@MainActivity).enqueue(sendWork)
                 Toast.makeText(this@MainActivity, "Küldés elindítva!", Toast.LENGTH_SHORT).show()
                 editTargetUrl.setText("")
+                rootContainer.postDelayed({ renderHistoryItems() }, 2000)
             }
         }
         rootContainer.addView(btnStart)

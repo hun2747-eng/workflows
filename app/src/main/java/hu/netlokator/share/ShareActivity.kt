@@ -2,13 +2,11 @@ package hu.netlokator.share
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import java.util.regex.Pattern
 
 class ShareActivity : Activity() {
 
@@ -30,9 +28,6 @@ class ShareActivity : Activity() {
             }
 
             if (url.isNotEmpty()) {
-                // Instantly record to history so user immediately sees it when opening app
-                HistoryManager.addSubmission(applicationContext, url, success = true)
-
                 val inputData = Data.Builder()
                     .putString("TARGET_URL", url)
                     .build()
@@ -53,18 +48,8 @@ class ShareActivity : Activity() {
 
     private fun extractUrl(text: String): String {
         val matcher = Regex("""https?://\S+""").toPattern().matcher(text)
-        val extracted = if (matcher.find()) matcher.group() else text.trim()
-
-        if (extracted.contains("share.google")) {
-            try {
-                val uri = Uri.parse(extracted)
-                val paramUrl = uri.getQueryParameter("url") ?: uri.getQueryParameter("q")
-                if (!paramUrl.isNullOrEmpty() && (paramUrl.startsWith("http://") || paramUrl.startsWith("https://"))) {
-                    return paramUrl
-                }
-            } catch (_: Exception) {}
-        }
-
+        var extracted = if (matcher.find()) matcher.group() else text.trim()
+        extracted = extracted.trimEnd('.', ',', ')', ']', '>', '"', ''')
         return extracted
     }
 }
