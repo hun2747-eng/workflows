@@ -26,6 +26,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "NetLokator"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   NetLokatorShare:
     type: app-extension
@@ -35,15 +36,18 @@ targets:
       - path: NetLokatorShare
       - path: NetLokator/HistoryStore.swift
       - path: NetLokator/NetworkService.swift
+      - path: NetLokator/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app.share
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "Send to Netlokator"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_NSExtension:
           NSExtensionPointIdentifier: "com.apple.share-services"
           NSExtensionPrincipalClass: "NetLokatorShare.ShareViewController"
           NSExtensionAttributes:
             NSExtensionActivationRule:
-              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsWebURLWithMaxCount: 10
+              NSExtensionActivationSupportsWebPageWithMaxCount: 1
               NSExtensionActivationSupportsText: YES
