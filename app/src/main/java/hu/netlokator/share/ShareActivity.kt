@@ -47,9 +47,10 @@ class ShareActivity : Activity() {
     }
 
     private fun extractUrl(text: String): String {
-        val matcher = Regex("""https?://\S+""").toPattern().matcher(text)
+        val matcher = Regex("https?://\\S+").toPattern().matcher(text)
         var extracted = if (matcher.find()) matcher.group() else text.trim()
-        extracted = extracted.trimEnd('.', ',', ')', ']', '>', '"', ''')
+        val charsToTrim = charArrayOf('.', ',', ')', ']', '>', '"', ''')
+        extracted = extracted.trimEnd(*charsToTrim)
         return extracted
     }
 }
