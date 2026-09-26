@@ -314,3 +314,47 @@ struct ContentView: View {
         UIPasteboard.general.detectValues(for: [.probableWebURL]) { result in
             DispatchQueue.main.async {
                 UserDefaults.standard.set(cc, forKey: "lastPasteChangeCount")
+                guard case .success(let values) = result else { return }
+                var clip = ""
+                if let s = values[.probableWebURL] as? String {
+                    clip = s
+                } else if let u = values[.probableWebURL] as? URL {
+                    clip = u.absoluteString
+                }
+                clip = clip.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard clip.hasPrefix("http://") || clip.hasPrefix("https://") else { return }
+                guard !self.isSending else { return }
+                self.urlInput = clip
+                self.sendUrlAction()
+            }
+        }
+    }
+
+    private func sendUrlAction() {
+        guard !urlInput.isEmpty else { return }
+        isSending = true
+        statusMessage = ""
+
+        Task {
+            do {
+                let res = try await NetworkService.shared.sendUrl(rawUrl: urlInput)
+                await MainActor.run {
+                    isSending = false
+                    statusIsError = !res.success
+                    statusMessage = res.message
+                    urlInput = ""
+                }
+            } catch {
+                await MainActor.run {
+                    isSending = false
+                    statusIsError = true
+                    statusMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func addTestLink() {
+        historyStore.addLink(url: "https://example.com/netlokator-test-ios", status: "Sikeres", message: "Teszt bejegyzés")
+    }
+}
