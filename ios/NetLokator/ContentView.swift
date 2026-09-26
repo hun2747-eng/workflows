@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var historyStore = HistoryStore.shared
     @State private var baseUrlInput = NetworkService.shared.baseUrl.isEmpty ? "https://netlokator.hu" : NetworkService.shared.baseUrl
     @State private var apiKeyInput = NetworkService.shared.apiKey
@@ -12,21 +13,21 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var settingsSuccessMsg = ""
     @State private var settingsErrorMsg = ""
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
                     headerView
-                    
+
                     if !isLoggedIn || showSettings {
                         settingsCard
                     }
-                    
+
                     if isLoggedIn {
                         submissionCard
                     }
-                    
+
                     historySection
                 }
                 .padding()
@@ -39,10 +40,16 @@ struct ContentView: View {
                     baseUrlInput = "https://netlokator.hu"
                 }
                 isLoggedIn = NetworkService.shared.isLoggedIn
+                autoSendFromClipboardIfNeeded()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                autoSendFromClipboardIfNeeded()
             }
         }
     }
-    
+
     private var headerView: some View {
         VStack(spacing: 6) {
             Image(systemName: "network")
@@ -56,7 +63,7 @@ struct ContentView: View {
         }
         .padding(.top, 10)
     }
-    
+
     private var settingsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -70,7 +77,7 @@ struct ContentView: View {
                     .font(.footnote)
                 }
             }
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("Base URL:").font(.caption).foregroundColor(.secondary)
                 TextField("https://netlokator.hu", text: $baseUrlInput)
@@ -78,7 +85,7 @@ struct ContentView: View {
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
             }
-            
+
             VStack(alignment: .leading, spacing: 4) {
                 Text("X-API-Key (kötelező):").font(.caption).foregroundColor(.secondary)
                 TextField("Add meg a NetLokátor API-kulcsot", text: $apiKeyInput)
@@ -86,7 +93,7 @@ struct ContentView: View {
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
             }
-            
+
             if !settingsErrorMsg.isEmpty {
                 Text(settingsErrorMsg)
                     .font(.footnote)
@@ -97,7 +104,7 @@ struct ContentView: View {
                     .font(.footnote)
                     .foregroundColor(.green)
             }
-            
+
             Button(action: saveSettings) {
                 HStack {
                     Spacer()
@@ -110,7 +117,7 @@ struct ContentView: View {
                 .foregroundColor(.white)
                 .cornerRadius(8)
             }
-            
+
             if isLoggedIn {
                 Button(action: logoutAction) {
                     HStack {
@@ -128,7 +135,7 @@ struct ContentView: View {
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
     }
-    
+
     private var submissionCard: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -139,13 +146,13 @@ struct ContentView: View {
                         .font(.footnote)
                 }
             }
-            
+
             HStack {
                 TextField("https://...", text: $urlInput)
                     .textFieldStyle(.roundedBorder)
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
-                
+
                 Button(action: pasteFromClipboard) {
                     Image(systemName: "doc.on.clipboard")
                         .padding(8)
@@ -153,7 +160,7 @@ struct ContentView: View {
                         .cornerRadius(6)
                 }
             }
-            
+
             Button(action: sendUrlAction) {
                 HStack {
                     Spacer()
@@ -170,7 +177,7 @@ struct ContentView: View {
                 .cornerRadius(8)
             }
             .disabled(urlInput.isEmpty || isSending)
-            
+
             if !statusMessage.isEmpty {
                 Text(statusMessage)
                     .font(.footnote)
@@ -181,7 +188,7 @@ struct ContentView: View {
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
     }
-    
+
     private var historySection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -194,13 +201,13 @@ struct ContentView: View {
                     }
                 }
             }
-            
+
             if historyStore.links.isEmpty {
                 VStack(spacing: 12) {
                     Text("Még nincs beküldött link az előzményekben.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
-                    
+
                     Button(action: addTestLink) {
                         Text("+ Teszt link hozzáadása")
                             .font(.footnote)
@@ -222,7 +229,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private func historyRow(_ item: SubmittedLink) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -241,7 +248,7 @@ struct ContentView: View {
                     .foregroundColor(item.status == "Sikeres" ? .green : .red)
                     .cornerRadius(4)
             }
-            
+
             Text(item.url)
                 .font(.footnote)
                 .foregroundColor(.blue)
@@ -261,29 +268,29 @@ struct ContentView: View {
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(8)
     }
-    
+
     private func saveSettings() {
         let cleanBase = baseUrlInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let finalBase = cleanBase.isEmpty ? "https://netlokator.hu" : cleanBase
         let cleanKey = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+
         if cleanKey.isEmpty {
             settingsErrorMsg = "Kérlek add meg a NetLokátor API-kulcsot!"
             settingsSuccessMsg = ""
             return
         }
-        
+
         NetworkService.shared.baseUrl = finalBase
         NetworkService.shared.apiKey = cleanKey
         baseUrlInput = finalBase
         apiKeyInput = cleanKey
-        
+
         settingsErrorMsg = ""
         settingsSuccessMsg = "Sikeres mentés és bejelentkezés!"
         isLoggedIn = true
         showSettings = false
     }
-    
+
     private func logoutAction() {
         NetworkService.shared.apiKey = ""
         apiKeyInput = ""
@@ -291,18 +298,35 @@ struct ContentView: View {
         settingsSuccessMsg = ""
         settingsErrorMsg = ""
     }
-    
+
     private func pasteFromClipboard() {
         if let clip = UIPasteboard.general.string {
             urlInput = clip.trimmingCharacters(in: .whitespacesAndNewlines)
         }
     }
-    
+
+    private func autoSendFromClipboardIfNeeded() {
+        guard NetworkService.shared.isLoggedIn else { return }
+        let cc = UIPasteboard.general.changeCount
+        let lastCC = UserDefaults.standard.integer(forKey: "lastPasteChangeCount")
+        guard cc != lastCC else { return }
+        UserDefaults.standard.set(cc, forKey: "lastPasteChangeCount")
+
+        guard UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs else { return }
+        let clip = (UIPasteboard.general.url?.absoluteString ?? UIPasteboard.general.string ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard clip.hasPrefix("http://") || clip.hasPrefix("https://") else { return }
+        guard !isSending else { return }
+
+        urlInput = clip
+        sendUrlAction()
+    }
+
     private func sendUrlAction() {
         guard !urlInput.isEmpty else { return }
         isSending = true
         statusMessage = ""
-        
+
         Task {
             do {
                 let res = try await NetworkService.shared.sendUrl(rawUrl: urlInput)
@@ -321,7 +345,7 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private func addTestLink() {
         historyStore.addLink(url: "https://example.com/netlokator-test-ios", status: "Sikeres", message: "Teszt bejegyzés")
     }
