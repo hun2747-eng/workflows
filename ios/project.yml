@@ -1,53 +1,53 @@
-name: NetLokator
-options:
-  bundleIdPrefix: hu.netlokator
-  projectFormat: xcode14_0
-  deploymentTarget:
-    iOS: "17.0"
-  xcodeVersion: "15.4"
+name: Build APK and iOS IPA
 
-settings:
-  base:
-    SWIFT_VERSION: "5.0"
-    TARGETED_DEVICE_FAMILY: "1,2"
-    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
-    CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
-    CODE_SIGN_IDENTITY: "$(CODE_SIGN_IDENTITY)"
-    CODE_SIGNING_ALLOWED: YES
-    CODE_SIGNING_REQUIRED: YES
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
-targets:
-  NetLokator:
-    type: application
-    platform: iOS
-    deploymentTarget: "17.0"
-    sources:
-      - path: NetLokator
-    dependencies:
-      - target: NetLokatorShare
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app
-        PROVISIONING_PROFILE_SPECIFIER: "$(APP_PROVISIONING_PROFILE_NAME)"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "NetLokator"
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-  NetLokatorShare:
-    type: app-extension
-    platform: iOS
-    deploymentTarget: "17.0"
-    info:
-      path: NetLokatorShare/Info.plist
-    sources:
-      - path: NetLokatorShare
-      - path: NetLokator/HistoryStore.swift
-      - path: NetLokator/NetworkService.swift
-      - path: NetLokator/Assets.xcassets
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app.share
-        PROVISIONING_PROFILE_SPECIFIER: "$(SHARE_PROVISIONING_PROFILE_NAME)"
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetLokator-Debug-APK
+          path: app/build/outputs/apk/debug/*.apk
+
+  build-ios:
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build unsigned IPA
+        run: |
+          set -euo pipefail
+          chmod +x ios/build_ipa.sh
+          ./ios/build_ipa.sh
+
+      - name: Upload unsigned iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetLokator-iOS-IPA
+          path: ios/build/NetLokator.ipa
+          if-no-files-found: error
