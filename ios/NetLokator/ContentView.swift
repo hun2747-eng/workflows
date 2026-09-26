@@ -310,43 +310,7 @@ struct ContentView: View {
         let cc = UIPasteboard.general.changeCount
         let lastCC = UserDefaults.standard.integer(forKey: "lastPasteChangeCount")
         guard cc != lastCC else { return }
-        UserDefaults.standard.set(cc, forKey: "lastPasteChangeCount")
 
-        guard UIPasteboard.general.hasStrings || UIPasteboard.general.hasURLs else { return }
-        let clip = (UIPasteboard.general.url?.absoluteString ?? UIPasteboard.general.string ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard clip.hasPrefix("http://") || clip.hasPrefix("https://") else { return }
-        guard !isSending else { return }
-
-        urlInput = clip
-        sendUrlAction()
-    }
-
-    private func sendUrlAction() {
-        guard !urlInput.isEmpty else { return }
-        isSending = true
-        statusMessage = ""
-
-        Task {
-            do {
-                let res = try await NetworkService.shared.sendUrl(rawUrl: urlInput)
-                await MainActor.run {
-                    isSending = false
-                    statusIsError = !res.success
-                    statusMessage = res.message
-                    urlInput = ""
-                }
-            } catch {
-                await MainActor.run {
-                    isSending = false
-                    statusIsError = true
-                    statusMessage = error.localizedDescription
-                }
-            }
-        }
-    }
-
-    private func addTestLink() {
-        historyStore.addLink(url: "https://example.com/netlokator-test-ios", status: "Sikeres", message: "Teszt bejegyzés")
-    }
-}
+        UIPasteboard.general.detectValues(for: [.probableWebURL]) { result in
+            DispatchQueue.main.async {
+                UserDefaults.standard.set(cc, forKey: "lastPasteChangeCount")
