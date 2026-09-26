@@ -24,8 +24,6 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: NetLokator
-    dependencies:
-      - target: NetLokatorShare
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app
@@ -33,21 +31,4 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "NetLokator"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-
-  NetLokatorShare:
-    type: app-extension
-    platform: iOS
-    deploymentTarget: "17.0"
-    info:
-      path: NetLokatorShare/Info.plist
-    sources:
-      - path: NetLokatorShare
-      - path: NetLokator/HistoryStore.swift
-      - path: NetLokator/NetworkService.swift
-      - path: NetLokator/Assets.xcassets
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: hu.netlokator.app.share
-        PROVISIONING_PROFILE_SPECIFIER: "$(SHARE_PROVISIONING_PROFILE_NAME)"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
