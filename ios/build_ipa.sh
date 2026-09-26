@@ -1,19 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Building signed NetLokator iOS 17 IPA ==="
-
-: "${DEVELOPMENT_TEAM:?DEVELOPMENT_TEAM is required}"
-: "${CODE_SIGN_IDENTITY:?CODE_SIGN_IDENTITY is required}"
-: "${APP_PROVISIONING_PROFILE_NAME:?APP_PROVISIONING_PROFILE_NAME is required}"
-: "${SHARE_PROVISIONING_PROFILE_NAME:?SHARE_PROVISIONING_PROFILE_NAME is required}"
+echo "=== Building UNSIGNED NetLokator iOS 17 IPA (Sideloadly will sign) ==="
 
 LATEST_XCODE=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
 if [ -n "$LATEST_XCODE" ]; then
     export DEVELOPER_DIR="$LATEST_XCODE/Contents/Developer"
 fi
-
-echo "Using Xcode at: $DEVELOPER_DIR"
+echo "Using Xcode at: ${DEVELOPER_DIR:-default}"
 xcodebuild -version
 
 cd ios
@@ -27,39 +21,28 @@ fi
 
 rm -rf build
 
-echo "=== Archiving with Apple signing ==="
-xcodebuild archive   -project NetLokator.xcodeproj   -scheme NetLokator   -configuration Release   -destination "generic/platform=iOS"   -archivePath build/NetLokator.xcarchive   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM"   CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY"   CODE_SIGN_STYLE=Manual   CODE_SIGNING_ALLOWED=YES   CODE_SIGNING_REQUIRED=YES   "PROVISIONING_PROFILE_SPECIFIER=$APP_PROVISIONING_PROFILE_NAME"
+echo "=== Archiving WITHOUT code signing ==="
+xcodebuild archive \
+  -project NetLokator.xcodeproj \
+  -scheme NetLokator \
+  -configuration Release \
+  -destination "generic/platform=iOS" \
+  -archivePath build/NetLokator.xcarchive \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY="" \
+  CODE_SIGN_STYLE=Manual \
+  PROVISIONING_PROFILE_SPECIFIER="" \
+  DEVELOPMENT_TEAM=""
 
-echo "=== Exporting signed IPA ==="
+APP_PATH="build/NetLokator.xcarchive/Products/Applications/NetLokator.app"
+test -d "$APP_PATH"
 
-cat > build/ExportOptions.plist <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>method</key>
-  <string>ad-hoc</string>
-  <key>signingStyle</key>
-  <string>manual</string>
-  <key>teamID</key>
-  <string>$DEVELOPMENT_TEAM</string>
-  <key>signingCertificate</key>
-  <string>$CODE_SIGN_IDENTITY</string>
-  <key>provisioningProfiles</key>
-  <dict>
-    <key>hu.netlokator.app</key>
-    <string>$APP_PROVISIONING_PROFILE_NAME</string>
-    <key>hu.netlokator.app.share</key>
-    <string>$SHARE_PROVISIONING_PROFILE_NAME</string>
-  </dict>
-</dict>
-</plist>
-EOF
+echo "=== Packaging unsigned IPA ==="
+rm -rf build/Payload
+mkdir -p build/Payload
+cp -R "$APP_PATH" build/Payload/
+( cd build && zip -qr NetLokator.ipa Payload )
+test -f build/NetLokator.ipa
 
-xcodebuild -exportArchive   -archivePath build/NetLokator.xcarchive   -exportPath build/export   -exportOptionsPlist build/ExportOptions.plist
-
-test -f build/export/NetLokator.ipa
-
-mv build/export/NetLokator.ipa build/NetLokator.ipa
-
-echo "=== Signed IPA ready: ios/build/NetLokator.ipa ==="
+echo "=== Unsigned IPA ready: ios/build/NetLokator.ipa ==="
