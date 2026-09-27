@@ -15,6 +15,12 @@
         <item quantity="one">%d ügyfél vár feldolgozásra az „Új klímát szeretne” listában.</item>
         <item quantity="other">%d ügyfél vár feldolgozásra az „Új klímát szeretne” listában.</item>
     </plurals>
+    <string name="maint_channel_name">Esedékes karbantartások (admin)</string>
+    <string name="maint_new_title_one">Új esedékes karbantartás</string>
+    <string name="maint_new_title_many">%d új esedékes karbantartás</string>
+    <string name="maint_total">Összesen %d ügyfél a következő 20 napban.</string>
+    <string name="widget_label">Karb.</string>
+    <string name="widget_desc">Esedékes karbantartások száma (admin)</string>
     <string name="links_title">Linkek megnyitása az appban</string>
     <string name="links_text">Hogy az e-mailben kapott belépési és ajánlói linkek (dkc.hu) ebben az appban nyíljanak meg, a következő képernyőn kapcsolja be a „Támogatott linkek megnyitása” opciót, és jelölje be a dkc.hu címet.</string>
     <string name="links_open_settings">Beállítás</string>

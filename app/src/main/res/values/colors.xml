@@ -7,4 +7,6 @@
     <color name="error">#B3261E</color>
     <color name="ic_bg">#3F5DFA</color>
     <color name="badge_yellow">#FACC15</color>
+    <color name="maint_green">#BBF7D0</color>
+    <color name="maint_green_dark">#16A34A</color>
 </resources>

@@ -325,6 +325,46 @@ class MainActivity : AppCompatActivity() {
             // Az "Új klímát szeretne" lista megnyitva → eltűnik a szám az app ikonjáról
             if (Uri.parse(url ?: "").getQueryParameter("tab") == "uj-klima") AdminAlerts.markSeen(this, uj.takeIf { it >= 0 })
         }
+        if (Uri.parse(url ?: "").getQueryParameter("szures") == "kov-20") readMaintenance(view)
+    }
+
+    /** Karbantartás lista (zöld sorok) az appban megnyitva: szám a widgetre, a "zöld" CSS osztály megjegyzése. */
+    private val maintJs = """
+        (function(){
+          function isGreen(el){
+            if (!el) return false;
+            var m = getComputedStyle(el).backgroundColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/);
+            if (!m || (m[4] !== undefined && parseFloat(m[4]) < 0.1)) return false;
+            var r = +m[1], g = +m[2], b = +m[3];
+            return g > r + 25 && g > b + 10;
+          }
+          var rows = Array.prototype.filter.call(document.querySelectorAll('tr'), function(tr){
+            return tr.cells && tr.cells.length >= 3 && /\d{4}-\d{2}-\d{2}/.test(tr.textContent);
+          });
+          if (!rows.length) return '';
+          var green = rows.filter(function(tr){ return isGreen(tr) || isGreen(tr.cells[0]) || isGreen(tr.cells[1]); });
+          function tokens(r){ var t = (r.className || '').split(/\s+/); for (var i = 0; i < r.cells.length; i++) t = t.concat((r.cells[i].className || '').split(/\s+/)); return t.filter(Boolean); }
+          var token = '';
+          if (green.length) {
+            var non = rows.filter(function(r){ return green.indexOf(r) < 0; });
+            var cand = tokens(green[0]).filter(function(t){
+              return green.every(function(r){ return tokens(r).indexOf(t) >= 0; }) &&
+                     !non.some(function(r){ return tokens(r).indexOf(t) >= 0; });
+            });
+            token = cand.filter(function(t){ return /green|emerald|lime|success/i.test(t); })[0] || cand[0] || '';
+          }
+          return green.length + '|' + token;
+        })()
+    """.trimIndent()
+
+    private fun readMaintenance(view: WebView) {
+        Maintenance.clearNotification(this)
+        view.evaluateJavascript(maintJs) { res ->
+            val parts = res?.trim('"')?.split('|') ?: return@evaluateJavascript
+            val n = parts.getOrNull(0)?.toIntOrNull() ?: return@evaluateJavascript
+            Maintenance.learnGreenToken(this, parts.getOrNull(1))
+            Maintenance.onCount(this, n)
+        }
     }
 
     // ---------------------------------------------------------------- admin push
@@ -334,6 +374,7 @@ class MainActivity : AppCompatActivity() {
     /** Bejelentkezett admin: háttér-ellenőrzés indítása, értesítési engedély, FCM token regisztráció a szerveren. */
     private fun onAdminActive(view: WebView) {
         AdminAlerts.startPolling(this)
+        MaintenanceWidget.updateAll(this)
         val sp = getSharedPreferences("dkc_prefs", MODE_PRIVATE)
         if (!sp.getBoolean("admin_notif_asked", false)) {
             sp.edit().putBoolean("admin_notif_asked", true).apply()
@@ -429,7 +470,7 @@ class MainActivity : AppCompatActivity() {
     private fun checkAdminState(view: WebView, url: String?) {
         if (!isAdminUrl(url)) { updateNav(url); return }
         if (pathOf(url)?.startsWith("/admin/logout") == true) {
-            adminLoggedIn = false; lastAdminUrl = null; AdminAlerts.stopPolling(this); updateNav(url); return
+            adminLoggedIn = false; lastAdminUrl = null; AdminAlerts.stopPolling(this); Maintenance.reset(this); updateNav(url); return
         }
         if (pathOf(url)?.startsWith("/admin/elfelejtett-jelszo") == true) {
             adminLoggedIn = false; updateNav(url); return
@@ -440,7 +481,7 @@ class MainActivity : AppCompatActivity() {
         ) { res ->
             val loginPage = res == "true"
             adminLoggedIn = !loginPage
-            if (loginPage) AdminAlerts.stopPolling(this) else onAdminActive(view)
+            if (loginPage) { AdminAlerts.stopPolling(this); Maintenance.reset(this) } else onAdminActive(view)
             if (!loginPage && !isNewClientUrl(url) && !isCalendarUrl(url)) lastAdminUrl = url
             if (loginPage) lastAdminUrl = null
             updateNav(url)

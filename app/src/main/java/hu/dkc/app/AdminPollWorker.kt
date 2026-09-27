@@ -9,7 +9,7 @@ import java.net.URL
 
 /**
  * Háttér-ellenőrzés (10 percenként): az admin munkamenet sütijével lekéri az admin oldalt,
- * és kiolvassa az "Új klímát szeretne N" számot. Ha a munkamenet lejárt (belépő oldal jön), nem csinál semmit.
+ * kiolvassa az "Új klímát szeretne N" számot és a következő 20 nap (zöld) karbantartásait. Ha a munkamenet lejárt (belépő oldal jön), nem csinál semmit.
  */
 class AdminPollWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
@@ -20,11 +20,17 @@ class AdminPollWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, para
         return Result.success()
     }
 
-    private fun check(): Result {
-        val cookie = try { CookieManager.getInstance().getCookie(AdminAlerts.NEW_URL) } catch (_: Exception) { null }
-        if (cookie.isNullOrBlank()) return Result.success()
+    private fun check() {
+        fetch(AdminAlerts.NEW_URL)?.let { html -> parseCount(html)?.let { AdminAlerts.onCount(applicationContext, it) } }
+        fetch(Maintenance.URL)?.let { html -> Maintenance.parse(applicationContext, html)?.let { Maintenance.onRows(applicationContext, it) } }
+    }
+
+    /** Admin oldal lekérése a WebView sütijével; null, ha nincs süti / hiba / nem 200. */
+    private fun fetch(url: String): String? {
+        val cookie = try { CookieManager.getInstance().getCookie(url) } catch (_: Exception) { null }
+        if (cookie.isNullOrBlank()) return null
         return try {
-            val c = (URL(AdminAlerts.NEW_URL).openConnection() as HttpURLConnection).apply {
+            val c = (URL(url).openConnection() as HttpURLConnection).apply {
                 instanceFollowRedirects = false
                 connectTimeout = 15000
                 readTimeout = 20000
@@ -33,22 +39,20 @@ class AdminPollWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, para
                 setRequestProperty("Cache-Control", "no-cache")
             }
             val code = c.responseCode
-            if (code != 200) { c.disconnect(); return Result.success() }
-            val html = c.inputStream.bufferedReader().use { it.readText() }
+            val html = if (code == 200) c.inputStream.bufferedReader().use { it.readText() } else null
             c.disconnect()
-            parseCount(html)?.let { AdminAlerts.onCount(applicationContext, it) }
-            Result.success()
-        } catch (_: Exception) {
-            Result.success()
-        }
+            html
+        } catch (_: Exception) { null }
     }
 
     companion object {
         private val TAGS = Regex("<[^>]*>")
         private val COUNT = Regex("Új klímát szeretne\\s*(\\d+)", RegexOption.IGNORE_CASE)
 
+        fun isLoginPage(html: String) = html.contains("name=\"password\"") && html.contains("elfelejtett-jelszo")
+
         fun parseCount(html: String): Int? {
-            if (html.contains("name=\"password\"") && html.contains("elfelejtett-jelszo")) return null // belépő oldal
+            if (isLoginPage(html)) return null
             val text = html.replace(TAGS, " ").replace("&nbsp;", " ").replace(Regex("\\s+"), " ")
             return COUNT.find(text)?.groupValues?.get(1)?.toIntOrNull()
         }
