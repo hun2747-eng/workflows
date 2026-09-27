@@ -31,4 +31,6 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "NetLokator"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_NSCameraUsageDescription: "A kamera a QR-kódok beolvasásához és a fotón lévő linkek felismeréséhez kell."
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "Képernyőképről / fotóról a link kiolvasásához."
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

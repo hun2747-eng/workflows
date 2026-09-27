@@ -13,6 +13,10 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var settingsSuccessMsg = ""
     @State private var settingsErrorMsg = ""
+    @State private var showQRScanner = false
+    @State private var showCamera = false
+    @State private var imageSource: UIImagePickerController.SourceType = .camera
+    @State private var isRecognizing = false
 
     var body: some View {
         NavigationView {
@@ -42,6 +46,26 @@ struct ContentView: View {
                 isLoggedIn = NetworkService.shared.isLoggedIn
                 autoSendFromClipboardIfNeeded()
             }
+        }
+        .fullScreenCover(isPresented: $showQRScanner) {
+            QRScannerSheet(
+                onFound: { value in
+                    showQRScanner = false
+                    handleScannedValue(value, source: "QR-kód")
+                },
+                onCancel: { showQRScanner = false }
+            )
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            ImagePicker(
+                sourceType: imageSource,
+                onImage: { image in
+                    showCamera = false
+                    recognizeLink(in: image)
+                },
+                onCancel: { showCamera = false }
+            )
+            .ignoresSafeArea()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -158,6 +182,46 @@ struct ContentView: View {
                         .padding(8)
                         .background(Color(.tertiarySystemFill))
                         .cornerRadius(6)
+                }
+
+                Button(action: { showQRScanner = true }) {
+                    Image(systemName: "qrcode.viewfinder")
+                        .padding(8)
+                        .background(Color(.tertiarySystemFill))
+                        .cornerRadius(6)
+                }
+                .accessibilityLabel("QR-kód beolvasása")
+
+                Button(action: {
+                    imageSource = .camera
+                    showCamera = true
+                }) {
+                    Group {
+                        if isRecognizing {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "camera")
+                        }
+                    }
+                    .padding(8)
+                    .background(Color(.tertiarySystemFill))
+                    .cornerRadius(6)
+                }
+                .disabled(isRecognizing)
+                .accessibilityLabel("Fotó készítése és link felismerése")
+                .contextMenu {
+                    Button {
+                        imageSource = .camera
+                        showCamera = true
+                    } label: {
+                        Label("Fotó készítése", systemImage: "camera")
+                    }
+                    Button {
+                        imageSource = .photoLibrary
+                        showCamera = true
+                    } label: {
+                        Label("Kép választása (pl. képernyőkép)", systemImage: "photo")
+                    }
                 }
             }
 
@@ -302,6 +366,34 @@ struct ContentView: View {
     private func pasteFromClipboard() {
         if let clip = UIPasteboard.general.string {
             urlInput = clip.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    private func handleScannedValue(_ value: String, source: String) {
+        if let link = LinkExtractor.firstURL(in: value) {
+            urlInput = link
+            statusIsError = false
+            statusMessage = "\(source): link beolvasva – ellenőrizd, majd nyomd meg a START gombot."
+        } else {
+            urlInput = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            statusIsError = true
+            statusMessage = "\(source): a beolvasott tartalom nem tűnik linknek."
+        }
+    }
+
+    private func recognizeLink(in image: UIImage) {
+        isRecognizing = true
+        statusMessage = ""
+        LinkExtractor.extractLink(from: image) { link in
+            isRecognizing = false
+            if let link = link {
+                urlInput = link
+                statusIsError = false
+                statusMessage = "Link felismerve a képről – ellenőrizd, majd nyomd meg a START gombot."
+            } else {
+                statusIsError = true
+                statusMessage = "Nem találtam linket a képen. Próbáld közelebbről, élesebben lefotózni."
+            }
         }
     }
 
