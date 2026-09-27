@@ -1,0 +1,4 @@
+DOES NOT VERIFY
+ERROR: Missing META-INF/MANIFEST.MF
+(unsigned build)
+FCM: enabled
