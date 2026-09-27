@@ -6,6 +6,9 @@
     <string name="nav_register">Regisztráció</string>
     <string name="nav_admin">Admin</string>
     <string name="admin_url">https://dkc.hu/admin/login</string>
+    <string name="nav_new_client">Új ügyfél</string>
+    <string name="new_client_url">https://dkc.hu/admin/ugyfel/uj</string>
+    <string name="register_url">https://dkc.hu/klimat-szeretnek</string>
     <string name="offline_title">Nincs kapcsolat</string>
     <string name="offline_text">Nem sikerült betölteni az oldalt. Ellenőrizze az internetkapcsolatot.</string>
     <string name="retry">Újra</string>

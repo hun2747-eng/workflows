@@ -51,6 +51,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var account: AccountPane
 
     @Volatile private var currentHostIsOwn = false
+    private var suppressNav = false
+    private var lastAdminUrl: String? = null
+    private var adminLoggedIn: Boolean
+        get() = getSharedPreferences("dkc_prefs", MODE_PRIVATE).getBoolean("admin_logged_in", false)
+        set(v) { getSharedPreferences("dkc_prefs", MODE_PRIVATE).edit().putBoolean("admin_logged_in", v).apply() }
     private var fileCallback: ValueCallback<Array<Uri>>? = null
 
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
@@ -83,20 +88,24 @@ class MainActivity : AppCompatActivity() {
         PushHelper.createChannel(this)
 
         bottomNav.setOnItemSelectedListener { item ->
-            when (item.itemId) {
+            if (!suppressNav) when (item.itemId) {
                 R.id.nav_home -> showHome()
                 R.id.nav_account -> showAccount()
                 R.id.nav_admin -> showAdmin()
+                R.id.nav_new_client -> web.loadUrl(getString(R.string.new_client_url))
             }
             true
         }
         bottomNav.setOnItemReselectedListener { item ->
-            when (item.itemId) {
+            if (!suppressNav) when (item.itemId) {
                 R.id.nav_home -> web.loadUrl(BuildConfig.HOME_URL)
-                R.id.nav_admin -> web.loadUrl(getString(R.string.admin_url))
+                R.id.nav_admin -> web.loadUrl(lastAdminUrl ?: getString(R.string.admin_url))
+                R.id.nav_account -> if (!prefs.isLoggedIn) web.loadUrl(getString(R.string.register_url))
+                R.id.nav_new_client -> web.loadUrl(getString(R.string.new_client_url))
             }
         }
         updateAccountLabel()
+        updateNav(null)
 
         findViewById<View>(R.id.retry).setOnClickListener {
             offline.isVisible = false
@@ -106,7 +115,10 @@ class MainActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
-                    accountContainer.isVisible -> bottomNav.selectedItemId = R.id.nav_home
+                    accountContainer.isVisible -> {
+                        accountContainer.isVisible = false
+                        updateNav(web.url)
+                    }
                     web.canGoBack() -> web.goBack()
                     else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
                 }
@@ -189,17 +201,73 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome() {
         accountContainer.isVisible = false
-        if (isAdminUrl(web.url)) web.loadUrl(BuildConfig.HOME_URL)
+        val u = web.url
+        if (u == null || isAdminUrl(u) || isRegisterUrl(u)) web.loadUrl(BuildConfig.HOME_URL)
     }
 
     private fun showAdmin() {
         accountContainer.isVisible = false
-        if (!isAdminUrl(web.url)) web.loadUrl(getString(R.string.admin_url))
+        val u = web.url
+        if (!isAdminUrl(u) || isNewClientUrl(u)) web.loadUrl(lastAdminUrl ?: getString(R.string.admin_url))
     }
 
-    private fun isAdminUrl(url: String?): Boolean {
-        val u = url?.let { Uri.parse(it) } ?: return false
-        return isOwn(u) && (u.path ?: "").startsWith("/admin")
+    private fun pathOf(url: String?): String? {
+        val u = url?.let { Uri.parse(it) } ?: return null
+        return if (isOwn(u)) (u.path ?: "/").trimEnd('/') else null
+    }
+
+    private fun isAdminUrl(url: String?) = pathOf(url)?.startsWith("/admin") == true
+    private fun isNewClientUrl(url: String?) = pathOf(url) == "/admin/ugyfel/uj"
+    private fun isRegisterUrl(url: String?) = pathOf(url)?.startsWith("/klimat-szeretnek") == true
+
+    private fun selectTab(id: Int) {
+        if (bottomNav.selectedItemId == id) return
+        suppressNav = true
+        bottomNav.selectedItemId = id
+        suppressNav = false
+    }
+
+    /**
+     * Alsó sáv:
+     *  - alap: Főoldal · Regisztráció · Admin
+     *  - admin bejelentkezve: Admin · + Új ügyfél
+     *  - admin, az Új ügyfél oldalon: csak Admin
+     */
+    private fun updateNav(url: String?) {
+        val admin = adminLoggedIn
+        val m = bottomNav.menu
+        m.findItem(R.id.nav_home).isVisible = !admin
+        m.findItem(R.id.nav_account).isVisible = !admin
+        m.findItem(R.id.nav_admin).isVisible = true
+        m.findItem(R.id.nav_new_client).isVisible = admin && !isNewClientUrl(url)
+        val want = when {
+            accountContainer.isVisible -> R.id.nav_account
+            isAdminUrl(url) || admin -> R.id.nav_admin
+            isRegisterUrl(url) && !prefs.isLoggedIn -> R.id.nav_account
+            else -> R.id.nav_home
+        }
+        selectTab(want)
+    }
+
+    /** Admin oldalon: ha van jelszómező, az a belépő oldal (nincs bejelentkezve). */
+    private fun checkAdminState(view: WebView, url: String?) {
+        if (!isAdminUrl(url)) { updateNav(url); return }
+        if (pathOf(url)?.startsWith("/admin/logout") == true) {
+            adminLoggedIn = false; lastAdminUrl = null; updateNav(url); return
+        }
+        if (pathOf(url)?.startsWith("/admin/elfelejtett-jelszo") == true) {
+            adminLoggedIn = false; updateNav(url); return
+        }
+        // Belépő űrlap = jelszómező + "elfelejtett jelszó" link (a jelszóváltó oldal nem számít)
+        view.evaluateJavascript(
+            "!!document.querySelector('input[type=password]') && !!document.querySelector('a[href*=\"elfelejtett-jelszo\"]')"
+        ) { res ->
+            val loginPage = res == "true"
+            adminLoggedIn = !loginPage
+            if (!loginPage && !isNewClientUrl(url)) lastAdminUrl = url
+            if (loginPage) lastAdminUrl = null
+            updateNav(url)
+        }
     }
 
     /** Kijelentkezve "Regisztráció", bejelentkezve "Fiókom". */
@@ -209,12 +277,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHomeTab() {
-        if (bottomNav.selectedItemId != R.id.nav_home) bottomNav.selectedItemId = R.id.nav_home else showHome()
+        accountContainer.isVisible = false
     }
 
     private fun showAccount() {
-        accountContainer.isVisible = true
-        account.render()
+        if (prefs.isLoggedIn || !prefs.referralCode.isNullOrBlank()) {
+            // Bejelentkezett ügyfél: natív Fiókom; ajánlói linkkel érkező: natív regisztráció (referral_code miatt)
+            accountContainer.isVisible = true
+            account.render()
+        } else {
+            accountContainer.isVisible = false
+            if (!isRegisterUrl(web.url)) web.loadUrl(getString(R.string.register_url))
+        }
     }
 
     fun onLoggedOut() {
@@ -293,7 +367,7 @@ class MainActivity : AppCompatActivity() {
                 swipe.isRefreshing = false
                 progress.isVisible = false
                 CookieManager.getInstance().flush()
-                syncTabWithUrl(url)
+                checkAdminState(view, url)
                 if (isOwn(url?.let { Uri.parse(it) }) && !isAdminUrl(url)) {
                     // Az appban nem kell az admin belépés link
                     view.evaluateJavascript(
@@ -335,14 +409,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         web.setDownloadListener { url, _, _, _, _ -> openExternal(Uri.parse(url)) }
-    }
-
-    private fun syncTabWithUrl(url: String?) {
-        if (accountContainer.isVisible) return
-        val want = if (isAdminUrl(url)) R.id.nav_admin else R.id.nav_home
-        if (bottomNav.selectedItemId != want) {
-            bottomNav.menu.findItem(want)?.isChecked = true
-        }
     }
 
     fun openExternal(uri: Uri) {
