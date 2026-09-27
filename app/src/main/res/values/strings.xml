@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DKC</string>
+    <string name="nav_home">Főoldal</string>
+    <string name="nav_account">Fiókom</string>
+    <string name="offline_title">Nincs kapcsolat</string>
+    <string name="offline_text">Nem sikerült betölteni az oldalt. Ellenőrizze az internetkapcsolatot.</string>
+    <string name="retry">Újra</string>
+
+    <string name="reg_title">Regisztráció</string>
+    <string name="reg_intro">Adja meg adatait, és munkatársunk hamarosan felveszi Önnel a kapcsolatot a karbantartás egyeztetéséhez.</string>
+    <string name="reg_submit">Regisztrálok</string>
+    <string name="reg_existing">Már ügyfelünk? Adja meg ugyanazt a telefonszámot vagy e-mail címet – a nálunk tárolt e-mail címre elküldjük a belépési linket. A linket ezen a telefonon nyissa meg.</string>
+    <string name="ref_banner">Ajánlói kód: %1$s – regisztrációkor automatikusan elküldjük.</string>
+    <string name="f_name">Név *</string>
+    <string name="f_phone">Mobilszám *</string>
+    <string name="f_email">E-mail cím</string>
+    <string name="f_postal_code">Irányítószám *</string>
+    <string name="f_city">Település *</string>
+    <string name="f_district">Kerület</string>
+    <string name="f_address">Utca, házszám *</string>
+    <string name="f_address2">Emelet, ajtó</string>
+    <string name="f_doorbell">Kapucsengő</string>
+    <string name="f_machines">Klímák száma</string>
+    <string name="f_availability">Mikor érhető el?</string>
+    <string name="f_notes">Megjegyzés</string>
+    <string name="f_referral">Ajánlói kód</string>
+    <string name="f_privacy">Elfogadom az adatkezelési tájékoztatót *</string>
+    <string name="privacy_link">Adatkezelési tájékoztató megnyitása</string>
+    <string name="err_required">Kötelező mező</string>
+    <string name="err_postal">4 számjegy</string>
+    <string name="err_phone">Érvénytelen telefonszám</string>
+    <string name="err_email">Érvénytelen e-mail cím</string>
+    <string name="err_privacy">Az adatkezelési tájékoztató elfogadása kötelező.</string>
+    <string name="err_network">Hálózati hiba. Próbálja újra később.</string>
+    <string name="err_rate">Túl sok próbálkozás. Kérjük, próbálja újra később.</string>
+    <string name="err_generic">Hiba történt (%1$d). Próbálja újra később.</string>
+    <string name="reg_sending">Küldés…</string>
+    <string name="reg_ok">Sikeres regisztráció!</string>
+    <string name="reg_verify_title">Ellenőrző e-mail</string>
+    <string name="reg_verify_text">Ezekkel az adatokkal már szerepel nálunk ügyfél. Ha van nálunk tárolt e-mail címe, oda elküldtük a belépési linket – nyissa meg ezen a telefonon. Ha nem kap levelet, kérjük, hívjon minket.</string>
+
+    <string name="acc_title">Fiókom</string>
+    <string name="acc_hello">Üdvözöljük, %1$s!</string>
+    <string name="acc_status">Állapot: %1$s</string>
+    <string name="acc_next">Következő karbantartás</string>
+    <string name="acc_next_none">Még nincs egyeztetett időpont.</string>
+    <string name="acc_data">Adataim</string>
+    <string name="acc_acs">Klímáim</string>
+    <string name="acc_acs_none">Nincs rögzített klíma.</string>
+    <string name="acc_ref">Ajánlja ismerőseinek</string>
+    <string name="acc_ref_text">Az Ön ajánlói kódja: %1$s</string>
+    <string name="acc_ref_none">Az ajánlói kód még nem elérhető.</string>
+    <string name="acc_push">Értesítések</string>
+    <string name="acc_push_text">Emlékeztetőt küldünk a karbantartás előtt.</string>
+    <string name="acc_push_unavailable">A push értesítések ebben a verzióban még nincsenek bekapcsolva.</string>
+    <string name="push_switch">Push értesítések</string>
+    <string name="ref_share">Megosztás</string>
+    <string name="ref_copy">Link másolása</string>
+    <string name="ref_copied">Link a vágólapon</string>
+    <string name="ref_share_text">Klímakarbantartás a DKC-vel – regisztrálj az ajánlói linkemmel: %1$s</string>
+    <string name="ref_share_title">Ajánlói link megosztása</string>
+    <string name="ref_saved_logged_in">Ön már be van jelentkezve – az ajánlói kód csak új regisztrációnál érvényes.</string>
+    <string name="logout">Kijelentkezés</string>
+    <string name="logout_confirm">Biztosan kijelentkezik ezen az eszközön?</string>
+    <string name="yes">Igen</string>
+    <string name="no">Nem</string>
+    <string name="ok">Rendben</string>
+    <string name="login_ok">Sikeres belépés</string>
+    <string name="login_invalid">A belépési link érvénytelen vagy lejárt. Kérjen újat.</string>
+    <string name="loading">Betöltés…</string>
+
+    <string name="push_ask_title">Értesítések</string>
+    <string name="push_ask_text">Szeretne értesítést kapni a karbantartási időpontokról?</string>
+
+    <string name="notif_channel_id">dkc_default</string>
+    <string name="notif_channel_name">Általános értesítések</string>
+    <string name="privacy_url">https://dkc.hu/</string>
+</resources>

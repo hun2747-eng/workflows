@@ -1,0 +1,90 @@
+name: Build Android
+
+on:
+  push:
+    branches: [dkc-android]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Aláíró kulcs visszaállítása
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          fi
+
+      - name: google-services.json (FCM, ha meg van adva)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" > app/google-services.json
+            echo "FCM: bekapcsolva"
+          else
+            echo "FCM: nincs google-services.json, push nélkül buildelünk"
+          fi
+
+      - name: Build APK + AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -o pipefail
+          mkdir -p dist
+          gradle --no-daemon --stacktrace assembleRelease bundleRelease 2>&1 | tee dist/build.log
+
+      - name: Kimenetek
+        id: out
+        run: |
+          V="1.0.${GITHUB_RUN_NUMBER}"
+          cp app/build/outputs/apk/release/*.apk "dist/dkc-${V}.apk"
+          cp app/build/outputs/bundle/release/*.aab "dist/dkc-${V}.aab"
+          BT=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+          mkdir -p dist/tools/lib64
+          cp $BT/lib/apksigner.jar dist/tools/ || true
+          cp $BT/zipalign dist/tools/ || true
+          cp $BT/aapt2 dist/tools/ || true
+          cp $BT/lib64/libc++.so* dist/tools/lib64/ 2>/dev/null || true
+          ( $BT/apksigner verify --print-certs dist/dkc-${V}.apk || echo "(unsigned build)" ) > dist/signing-cert.txt 2>&1
+          [ -f app/google-services.json ] && echo "FCM: enabled" >> dist/signing-cert.txt || echo "FCM: disabled" >> dist/signing-cert.txt
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dkc-build-${{ github.run_number }}
+          path: dist/*
+
+      - name: Eredmény feltöltése a dkc-builds ágra
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          mkdir -p dist && cd dist
+          echo "run=${GITHUB_RUN_NUMBER} status=${JOB_STATUS} sha=${GITHUB_SHA}" > STATUS.txt
+          git init -q -b dkc-builds
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "build ${GITHUB_RUN_NUMBER}: ${JOB_STATUS}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" dkc-builds
