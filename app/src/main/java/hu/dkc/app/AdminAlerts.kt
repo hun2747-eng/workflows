@@ -12,9 +12,9 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.Constraints
-import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
@@ -22,13 +22,14 @@ import java.util.concurrent.TimeUnit
  * Admin értesítés az új klíma-igényekről (https://dkc.hu/admin?tab=uj-klima):
  *  - push értesítés (FCM data üzenet: type=new_registration, count=<db>)
  *  - szám az app ikonján (az értesítés setNumber-e alapján a launcher mutatja)
- *  - tartalék: 15 percenkénti háttér-ellenőrzés az admin oldalon (AdminPollWorker), amíg él az admin munkamenet
+ *  - tartalék: 10 percenkénti háttér-ellenőrzés az admin oldalon (AdminPollWorker), amíg él az admin munkamenet
  */
 object AdminAlerts {
     const val NEW_URL = "https://dkc.hu/admin?tab=uj-klima"
     private const val CHANNEL_ID = "dkc_new_registrations"
     private const val NOTIF_ID = 4201
-    private const val WORK_NAME = "dkc_admin_poll"
+    private const val WORK_NAME = "dkc_admin_poll_chain"
+    private const val LEGACY_PERIODIC = "dkc_admin_poll"
     private const val SP = "dkc_admin_alerts"
     private const val KEY_NOTIFIED = "notified_count"
 
@@ -104,15 +105,28 @@ object AdminAlerts {
         } catch (_: SecurityException) { }
     }
 
+    /** Ellenőrzési időköz. (A PeriodicWork minimuma 15 perc, ezért láncolt egyszeri feladatokat használunk.) */
+    const val POLL_MINUTES = 10L
+
     fun startPolling(context: Context) {
-        val req = PeriodicWorkRequestBuilder<AdminPollWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, req)
+        val wm = WorkManager.getInstance(context)
+        wm.cancelUniqueWork(LEGACY_PERIODIC)
+        wm.enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.KEEP, nextRequest(0))
     }
+
+    /** A következő ellenőrzés beütemezése (a worker hívja a futása végén). */
+    fun scheduleNext(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.APPEND_OR_REPLACE, nextRequest(POLL_MINUTES))
+    }
+
+    private fun nextRequest(delayMin: Long) = OneTimeWorkRequestBuilder<AdminPollWorker>()
+        .setInitialDelay(delayMin, TimeUnit.MINUTES)
+        .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+        .build()
 
     fun stopPolling(context: Context) {
         WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        WorkManager.getInstance(context).cancelUniqueWork(LEGACY_PERIODIC)
         clear(context)
     }
 }

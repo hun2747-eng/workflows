@@ -8,12 +8,19 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Háttér-ellenőrzés (15 percenként): az admin munkamenet sütijével lekéri az admin oldalt,
+ * Háttér-ellenőrzés (10 percenként): az admin munkamenet sütijével lekéri az admin oldalt,
  * és kiolvassa az "Új klímát szeretne N" számot. Ha a munkamenet lejárt (belépő oldal jön), nem csinál semmit.
  */
 class AdminPollWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
     override fun doWork(): Result {
+        val admin = applicationContext.getSharedPreferences("dkc_prefs", Context.MODE_PRIVATE).getBoolean("admin_logged_in", false)
+        if (!admin) return Result.success()
+        try { check() } finally { AdminAlerts.scheduleNext(applicationContext) }
+        return Result.success()
+    }
+
+    private fun check(): Result {
         val cookie = try { CookieManager.getInstance().getCookie(AdminAlerts.NEW_URL) } catch (_: Exception) { null }
         if (cookie.isNullOrBlank()) return Result.success()
         return try {

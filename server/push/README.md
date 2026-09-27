@@ -20,5 +20,5 @@ https://dkc.hu/admin?tab=uj-klima listába.
 `type=new_registration`, `count=<db>`, `title`, `body`, `url=https://dkc.hu/admin?tab=uj-klima`
 
 ## Tartalék az appban
-Push nélkül is: az app 15 percenként (Android WorkManager) lekéri az admin oldalt az admin munkamenettel,
+Push nélkül is: az app 10 percenként (Android WorkManager) lekéri az admin oldalt az admin munkamenettel,
 és ha az "Új klímát szeretne" szám nőtt, értesít. Ez csak addig működik, amíg az admin munkamenet él.
