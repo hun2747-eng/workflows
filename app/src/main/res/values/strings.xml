@@ -3,6 +3,9 @@
     <string name="app_name">DKC.HU</string>
     <string name="nav_home">Főoldal</string>
     <string name="nav_account">Fiókom</string>
+    <string name="nav_register">Regisztráció</string>
+    <string name="nav_admin">Admin</string>
+    <string name="admin_url">https://dkc.hu/admin/login</string>
     <string name="offline_title">Nincs kapcsolat</string>
     <string name="offline_text">Nem sikerült betölteni az oldalt. Ellenőrizze az internetkapcsolatot.</string>
     <string name="retry">Újra</string>

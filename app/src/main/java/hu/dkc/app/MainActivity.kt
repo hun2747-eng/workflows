@@ -86,12 +86,17 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.nav_home -> showHome()
                 R.id.nav_account -> showAccount()
+                R.id.nav_admin -> showAdmin()
             }
             true
         }
         bottomNav.setOnItemReselectedListener { item ->
-            if (item.itemId == R.id.nav_home) web.loadUrl(BuildConfig.HOME_URL)
+            when (item.itemId) {
+                R.id.nav_home -> web.loadUrl(BuildConfig.HOME_URL)
+                R.id.nav_admin -> web.loadUrl(getString(R.string.admin_url))
+            }
         }
+        updateAccountLabel()
 
         findViewById<View>(R.id.retry).setOnClickListener {
             offline.isVisible = false
@@ -152,6 +157,7 @@ class MainActivity : AppCompatActivity() {
             is DeepLink.Login -> {
                 prefs.token = link.uuid
                 prefs.referralCode = null
+                updateAccountLabel()
                 Toast.makeText(this, R.string.login_ok, Toast.LENGTH_SHORT).show()
                 bottomNav.selectedItemId = R.id.nav_account
                 account.render(forceReload = true)
@@ -183,6 +189,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome() {
         accountContainer.isVisible = false
+        if (isAdminUrl(web.url)) web.loadUrl(BuildConfig.HOME_URL)
+    }
+
+    private fun showAdmin() {
+        accountContainer.isVisible = false
+        if (!isAdminUrl(web.url)) web.loadUrl(getString(R.string.admin_url))
+    }
+
+    private fun isAdminUrl(url: String?): Boolean {
+        val u = url?.let { Uri.parse(it) } ?: return false
+        return isOwn(u) && (u.path ?: "").startsWith("/admin")
+    }
+
+    /** Kijelentkezve "Regisztráció", bejelentkezve "Fiókom". */
+    fun updateAccountLabel() {
+        bottomNav.menu.findItem(R.id.nav_account)?.title =
+            getString(if (prefs.isLoggedIn) R.string.nav_account else R.string.nav_register)
     }
 
     private fun showHomeTab() {
@@ -195,6 +218,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onLoggedOut() {
+        updateAccountLabel()
         account.render()
     }
 
@@ -269,7 +293,8 @@ class MainActivity : AppCompatActivity() {
                 swipe.isRefreshing = false
                 progress.isVisible = false
                 CookieManager.getInstance().flush()
-                if (isOwn(url?.let { Uri.parse(it) })) {
+                syncTabWithUrl(url)
+                if (isOwn(url?.let { Uri.parse(it) }) && !isAdminUrl(url)) {
                     // Az appban nem kell az admin belépés link
                     view.evaluateJavascript(
                         "document.querySelectorAll('a[href*=\"/admin\"]').forEach(function(a){a.style.display='none'});",
@@ -310,6 +335,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         web.setDownloadListener { url, _, _, _, _ -> openExternal(Uri.parse(url)) }
+    }
+
+    private fun syncTabWithUrl(url: String?) {
+        if (accountContainer.isVisible) return
+        val want = if (isAdminUrl(url)) R.id.nav_admin else R.id.nav_home
+        if (bottomNav.selectedItemId != want) {
+            bottomNav.menu.findItem(want)?.isChecked = true
+        }
     }
 
     fun openExternal(uri: Uri) {

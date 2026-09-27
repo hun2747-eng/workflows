@@ -135,6 +135,7 @@ class AccountPane(private val activity: MainActivity, private val container: Fra
                     if (uuid.isNotEmpty()) {
                         prefs.token = uuid
                         prefs.referralCode = null
+                        activity.updateAccountLabel()
                         registerView = null
                         Toast.makeText(activity, R.string.reg_ok, Toast.LENGTH_SHORT).show()
                         PushHelper.syncToken(activity)
