@@ -269,6 +269,13 @@ class MainActivity : AppCompatActivity() {
                 swipe.isRefreshing = false
                 progress.isVisible = false
                 CookieManager.getInstance().flush()
+                if (isOwn(url?.let { Uri.parse(it) })) {
+                    // Az appban nem kell az admin belépés link
+                    view.evaluateJavascript(
+                        "document.querySelectorAll('a[href*=\"/admin\"]').forEach(function(a){a.style.display='none'});",
+                        null,
+                    )
+                }
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

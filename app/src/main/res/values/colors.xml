@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand">#0B6FB8</color>
-    <color name="brand_dark">#08548C</color>
-    <color name="brand_container">#D6E8F7</color>
+    <color name="brand">#155DFC</color>
+    <color name="brand_dark">#1447E6</color>
+    <color name="brand_container">#D8E1FE</color>
     <color name="surface">#FFFFFF</color>
     <color name="error">#B3261E</color>
-    <color name="ic_bg">#0B6FB8</color>
+    <color name="ic_bg">#3F5DFA</color>
 </resources>

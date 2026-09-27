@@ -1,3 +1,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M54.00,54.00L54.00,32.00M54.00,41.00L59.66,35.34M54.00,41.00L48.34,35.34M54.00,54.00L34.95,43.00M42.74,47.50L40.67,39.77M42.74,47.50L35.01,49.57M54.00,54.00L34.95,65.00M42.74,60.50L35.01,58.43M42.74,60.50L40.67,68.23M54.00,54.00L54.00,76.00M54.00,67.00L48.34,72.66M54.00,67.00L59.66,72.66M54.00,54.00L73.05,65.00M65.26,60.50L67.33,68.23M65.26,60.50L72.99,58.43M54.00,54.00L73.05,43.00M65.26,47.50L72.99,49.57M65.26,47.50L67.33,39.77"/>
+    <!-- klíma beltéri egység -->
+    <path android:fillColor="#FFFFFF" android:pathData="M32,34h44a6,6 0,0 1,6 6v14a6,6 0,0 1,-6 6h-44a6,6 0,0 1,-6 -6v-14a6,6 0,0 1,6 -6z"/>
+    <path android:fillColor="#3F5DFA" android:pathData="M33,51h42v3h-42z"/>
+    <path android:fillColor="#3F5DFA" android:pathData="M72,41m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0"/>
+    <!-- légáramlás -->
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:pathData="M42,66q-3,5 -1,10M54,66q-2,5 0,10M66,66q3,5 1,10"/>
 </vector>

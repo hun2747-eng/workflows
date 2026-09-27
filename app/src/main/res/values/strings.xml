@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">DKC</string>
+    <string name="app_name">DKC.HU</string>
     <string name="nav_home">Főoldal</string>
     <string name="nav_account">Fiókom</string>
     <string name="offline_title">Nincs kapcsolat</string>
@@ -25,13 +25,13 @@
     <string name="f_availability">Mikor érhető el?</string>
     <string name="f_notes">Megjegyzés</string>
     <string name="f_referral">Ajánlói kód</string>
-    <string name="f_privacy">Elfogadom az adatkezelési tájékoztatót *</string>
-    <string name="privacy_link">Adatkezelési tájékoztató megnyitása</string>
+    <string name="f_privacy">Elolvastam és elfogadom az adatvédelmi tájékoztatót *</string>
+    <string name="privacy_link">Adatvédelmi tájékoztató megnyitása</string>
     <string name="err_required">Kötelező mező</string>
     <string name="err_postal">4 számjegy</string>
     <string name="err_phone">Érvénytelen telefonszám</string>
     <string name="err_email">Érvénytelen e-mail cím</string>
-    <string name="err_privacy">Az adatkezelési tájékoztató elfogadása kötelező.</string>
+    <string name="err_privacy">Az adatvédelmi tájékoztató elfogadása kötelező.</string>
     <string name="err_network">Hálózati hiba. Próbálja újra később.</string>
     <string name="err_rate">Túl sok próbálkozás. Kérjük, próbálja újra később.</string>
     <string name="err_generic">Hiba történt (%1$d). Próbálja újra később.</string>
@@ -58,7 +58,7 @@
     <string name="ref_share">Megosztás</string>
     <string name="ref_copy">Link másolása</string>
     <string name="ref_copied">Link a vágólapon</string>
-    <string name="ref_share_text">Klímakarbantartás a DKC-vel – regisztrálj az ajánlói linkemmel: %1$s</string>
+    <string name="ref_share_text">Klímaszerviz a DKC.HU-val – regisztrálj az ajánlói linkemmel: %1$s</string>
     <string name="ref_share_title">Ajánlói link megosztása</string>
     <string name="ref_saved_logged_in">Ön már be van jelentkezve – az ajánlói kód csak új regisztrációnál érvényes.</string>
     <string name="logout">Kijelentkezés</string>
@@ -75,5 +75,5 @@
 
     <string name="notif_channel_id">dkc_default</string>
     <string name="notif_channel_name">Általános értesítések</string>
-    <string name="privacy_url">https://dkc.hu/</string>
+    <string name="privacy_url">https://dkc.hu/adatvedelmi-tajekoztato</string>
 </resources>
