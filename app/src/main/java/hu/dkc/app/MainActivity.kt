@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         account = AccountPane(this, accountContainer)
         PushHelper.createChannel(this)
+        AdminAlerts.createChannel(this)
         checkLinkHandling()
 
         bottomNav.setOnItemSelectedListener { item ->
@@ -308,14 +309,65 @@ class MainActivity : AppCompatActivity() {
               break;
             }
           }
-          return c;
+          var u = -1, um = norm(document.body ? document.body.innerText : '').match(/Új klímát szeretne\s*(\d+)/i);
+          if (um) u = parseInt(um[1], 10);
+          return c + '|' + u;
         })()
     """.trimIndent()
 
     private fun tidyAdminPage(view: WebView) {
+        val url = view.url
         view.evaluateJavascript(adminTidyJs) { res ->
-            val n = res?.trim('"')?.toDoubleOrNull()?.toInt() ?: return@evaluateJavascript
-            if (n >= 0) { calendarCount = n; applyCalendarBadge() }
+            val parts = res?.trim('"')?.split('|') ?: return@evaluateJavascript
+            val cal = parts.getOrNull(0)?.toIntOrNull() ?: -1
+            val uj = parts.getOrNull(1)?.toIntOrNull() ?: -1
+            if (cal >= 0) { calendarCount = cal; applyCalendarBadge() }
+            // Az "Új klímát szeretne" lista megnyitva → eltűnik a szám az app ikonjáról
+            if (Uri.parse(url ?: "").getQueryParameter("tab") == "uj-klima") AdminAlerts.markSeen(this, uj.takeIf { it >= 0 })
+        }
+    }
+
+    // ---------------------------------------------------------------- admin push
+
+    private var adminTokenInFlight = false
+
+    /** Bejelentkezett admin: háttér-ellenőrzés indítása, értesítési engedély, FCM token regisztráció a szerveren. */
+    private fun onAdminActive(view: WebView) {
+        AdminAlerts.startPolling(this)
+        val sp = getSharedPreferences("dkc_prefs", MODE_PRIVATE)
+        if (!sp.getBoolean("admin_notif_asked", false)) {
+            sp.edit().putBoolean("admin_notif_asked", true).apply()
+            requestNotificationPermission { }
+        }
+        if (!PushHelper.isAvailable(this) || adminTokenInFlight) return
+        try {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnSuccessListener { t ->
+                if (t.isNullOrBlank() || sp.getString("admin_fcm_sent_for", null) == t) return@addOnSuccessListener
+                adminTokenInFlight = true
+                pendingAdminToken = t
+                val js = """
+                    (function(){
+                      var i = document.querySelector('input[name=csrf_token]'), m = document.querySelector('meta[name=csrf-token]');
+                      var csrf = (i && i.value) || (m && m.content) || '';
+                      fetch('/api/app/admin-push-token', {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
+                        body: JSON.stringify({token: ${org.json.JSONObject.quote(t)}, platform: 'android', csrf_token: csrf})
+                      }).then(function(r){ DKCApp.adminTokenResult(r.status); })
+                        .catch(function(){ DKCApp.adminTokenResult(-1); });
+                    })();
+                """.trimIndent()
+                view.evaluateJavascript(js, null)
+            }
+        } catch (_: Exception) { }
+    }
+
+    private var pendingAdminToken: String? = null
+
+    private fun onAdminTokenResult(status: Int) {
+        adminTokenInFlight = false
+        if (status in 200..299) {
+            getSharedPreferences("dkc_prefs", MODE_PRIVATE).edit().putString("admin_fcm_sent_for", pendingAdminToken).apply()
         }
     }
 
@@ -377,7 +429,7 @@ class MainActivity : AppCompatActivity() {
     private fun checkAdminState(view: WebView, url: String?) {
         if (!isAdminUrl(url)) { updateNav(url); return }
         if (pathOf(url)?.startsWith("/admin/logout") == true) {
-            adminLoggedIn = false; lastAdminUrl = null; updateNav(url); return
+            adminLoggedIn = false; lastAdminUrl = null; AdminAlerts.stopPolling(this); updateNav(url); return
         }
         if (pathOf(url)?.startsWith("/admin/elfelejtett-jelszo") == true) {
             adminLoggedIn = false; updateNav(url); return
@@ -388,6 +440,7 @@ class MainActivity : AppCompatActivity() {
         ) { res ->
             val loginPage = res == "true"
             adminLoggedIn = !loginPage
+            if (loginPage) AdminAlerts.stopPolling(this) else onAdminActive(view)
             if (!loginPage && !isNewClientUrl(url) && !isCalendarUrl(url)) lastAdminUrl = url
             if (loginPage) lastAdminUrl = null
             updateNav(url)
@@ -632,6 +685,7 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface fun getToken(): String = if (currentHostIsOwn) prefs.token ?: "" else ""
         @JavascriptInterface fun getReferralCode(): String = if (currentHostIsOwn) prefs.referralCode ?: "" else ""
         @JavascriptInterface fun openAccount() { runOnUiThread { bottomNav.selectedItemId = R.id.nav_account } }
+        @JavascriptInterface fun adminTokenResult(status: Int) { runOnUiThread { onAdminTokenResult(status) } }
     }
 
     fun confirm(msg: Int, onYes: () -> Unit) {

@@ -19,6 +19,14 @@ class PushService : FirebaseMessagingService() {
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        // Admin: új klíma-igény (data üzenet: type=new_registration, count, [title, body, url])
+        if (message.data["type"] == "new_registration") {
+            val admin = getSharedPreferences("dkc_prefs", MODE_PRIVATE).getBoolean("admin_logged_in", false)
+            if (!admin) return
+            val count = message.data["count"]?.toIntOrNull() ?: 1
+            AdminAlerts.onCount(this, count, message.data["title"], message.data["body"], message.data["url"])
+            return
+        }
         val title = message.notification?.title ?: message.data["title"] ?: getString(R.string.app_name)
         val body = message.notification?.body ?: message.data["body"] ?: return
         val url = message.data["url"]
