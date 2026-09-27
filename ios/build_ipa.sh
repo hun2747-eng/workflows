@@ -20,6 +20,7 @@ if [ -f "NetLokator.xcodeproj/project.pbxproj" ]; then
 fi
 
 rm -rf build
+mkdir -p build
 
 echo "=== Archiving WITHOUT code signing ==="
 xcodebuild archive \
@@ -33,7 +34,13 @@ xcodebuild archive \
   CODE_SIGN_IDENTITY="" \
   CODE_SIGN_STYLE=Manual \
   PROVISIONING_PROFILE_SPECIFIER="" \
-  DEVELOPMENT_TEAM=""
+  DEVELOPMENT_TEAM="" 2>&1 | tee build/xcodebuild.log || {
+    echo "=== ARCHIVE FAILED – compiler errors: ==="
+    grep -E "error:" build/xcodebuild.log | sort -u | head -30 | while IFS= read -r line; do
+      echo "::error::${line}"
+    done
+    exit 65
+  }
 
 APP_PATH="build/NetLokator.xcarchive/Products/Applications/NetLokator.app"
 test -d "$APP_PATH"
