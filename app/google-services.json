@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "685879149973",
+    "project_id": "hudkcapp",
+    "storage_bucket": "hudkcapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:685879149973:android:757cd27cceff7378d1e29c",
+        "android_client_info": {
+          "package_name": "hu.dkc.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9Nw5PcEevX3ZS1zzvQndT2a9Ep2Il2oI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
