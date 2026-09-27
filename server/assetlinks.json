@@ -5,7 +5,8 @@
       "namespace": "android_app",
       "package_name": "hu.dkc.app",
       "sha256_cert_fingerprints": [
-        "51:98:8C:D9:36:F8:89:BF:CA:FA:D4:FA:C2:29:9D:59:B9:63:6F:1F:40:F1:AE:E1:2C:3A:A5:76:15:73:27:6A"
+        "51:98:8C:D9:36:F8:89:BF:CA:FA:D4:FA:C2:29:9D:59:B9:63:6F:1F:40:F1:AE:E1:2C:3A:A5:76:15:73:27:6A",
+        "B5:18:9D:32:FC:F8:29:85:87:96:07:A7:65:04:91:3F:8D:D9:F3:FC:07:06:55:7D:53:8D:9A:F1:0E:A5:4C:C0"
       ]
     }
   }
