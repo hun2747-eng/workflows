@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Admin módban (bejelentkezett admin). A BottomNavigationView max. 5 elemet enged, ezért külön menü. -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_admin" android:icon="@drawable/ic_admin" android:title="@string/nav_admin" />
+    <item android:id="@+id/nav_new_client" android:icon="@drawable/ic_add" android:title="@string/nav_new_client" />
+    <item android:id="@+id/nav_calendar" android:icon="@drawable/ic_calendar" android:title="@string/nav_calendar" />
+    <item android:id="@+id/nav_menu" android:icon="@drawable/ic_menu" android:title="@string/nav_menu" />
+</menu>

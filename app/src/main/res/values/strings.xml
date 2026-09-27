@@ -8,6 +8,10 @@
     <string name="admin_url">https://dkc.hu/admin/login</string>
     <string name="nav_new_client">Új ügyfél</string>
     <string name="new_client_url">https://dkc.hu/admin/ugyfel/uj</string>
+    <string name="nav_calendar">Naptár</string>
+    <string name="calendar_url">https://dkc.hu/admin/naptar</string>
+    <string name="nav_menu">Menü</string>
+    <string name="menu_not_found">Ezen az oldalon nincs menü.</string>
     <string name="register_url">https://dkc.hu/klimat-szeretnek</string>
     <string name="offline_title">Nincs kapcsolat</string>
     <string name="offline_text">Nem sikerült betölteni az oldalt. Ellenőrizze az internetkapcsolatot.</string>

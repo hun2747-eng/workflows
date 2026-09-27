@@ -93,6 +93,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_account -> showAccount()
                 R.id.nav_admin -> showAdmin()
                 R.id.nav_new_client -> web.loadUrl(getString(R.string.new_client_url))
+                R.id.nav_calendar -> showCalendar()
+                R.id.nav_menu -> { openWebMenu(); return@setOnItemSelectedListener false }
             }
             true
         }
@@ -102,6 +104,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_admin -> web.loadUrl(lastAdminUrl ?: getString(R.string.admin_url))
                 R.id.nav_account -> if (!prefs.isLoggedIn) web.loadUrl(getString(R.string.register_url))
                 R.id.nav_new_client -> web.loadUrl(getString(R.string.new_client_url))
+                R.id.nav_calendar -> web.loadUrl(getString(R.string.calendar_url))
+                R.id.nav_menu -> openWebMenu()
             }
         }
         updateAccountLabel()
@@ -208,7 +212,45 @@ class MainActivity : AppCompatActivity() {
     private fun showAdmin() {
         accountContainer.isVisible = false
         val u = web.url
-        if (!isAdminUrl(u) || isNewClientUrl(u)) web.loadUrl(lastAdminUrl ?: getString(R.string.admin_url))
+        if (!isAdminUrl(u) || isNewClientUrl(u) || isCalendarUrl(u)) web.loadUrl(lastAdminUrl ?: getString(R.string.admin_url))
+    }
+
+    private fun showCalendar() {
+        accountContainer.isVisible = false
+        if (!isCalendarUrl(web.url)) web.loadUrl(getString(R.string.calendar_url))
+    }
+
+    /** Az admin oldal saját (hamburger) menüjének megnyitása. */
+    private fun openWebMenu() {
+        accountContainer.isVisible = false
+        val js = """
+            (function(){
+              function vis(e){ return e && e.offsetParent !== null && !e.disabled; }
+              var sels = ['[data-drawer-toggle]','[data-drawer-target]','[data-collapse-toggle]',
+                '[aria-controls*="menu" i]','[aria-controls*="sidebar" i]','[aria-controls*="nav" i]',
+                '[aria-label*="menu" i]','[aria-label*="menü" i]','[title*="menü" i]','[title*="menu" i]',
+                '#menu-toggle','#menuToggle','#sidebar-toggle','#sidebarToggle','#mobile-menu-button','#hamburger',
+                '.menu-toggle','.hamburger','.sidebar-toggle','.navbar-toggler','.nav-toggle'];
+              for (var i = 0; i < sels.length; i++) {
+                var l = document.querySelectorAll(sels[i]);
+                for (var j = 0; j < l.length; j++) if (vis(l[j])) { l[j].click(); return 'ok'; }
+              }
+              var b = document.querySelectorAll('button, a, [role=button]');
+              for (var k = 0; k < b.length; k++) {
+                var p = b[k].querySelector('svg path');
+                var d = p ? (p.getAttribute('d') || '') : '';
+                var t = (b[k].textContent || '').trim();
+                if (vis(b[k]) && (/M4 6h16M4 12h16M4 18h16|M3 12h18M3 6h18M3 18h18|M4 6h16M4 12h16m-7 6h7/i.test(d) || t === '☰' || /^men[uü]$/i.test(t))) { b[k].click(); return 'ok'; }
+              }
+              return 'none';
+            })()
+        """.trimIndent()
+        web.evaluateJavascript(js) { res ->
+            if (res != "\"ok\"") {
+                web.scrollTo(0, 0)
+                Toast.makeText(this, R.string.menu_not_found, Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun pathOf(url: String?): String? {
@@ -218,6 +260,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun isAdminUrl(url: String?) = pathOf(url)?.startsWith("/admin") == true
     private fun isNewClientUrl(url: String?) = pathOf(url) == "/admin/ugyfel/uj"
+    private fun isCalendarUrl(url: String?) = pathOf(url)?.startsWith("/admin/naptar") == true
     private fun isRegisterUrl(url: String?) = pathOf(url)?.startsWith("/klimat-szeretnek") == true
 
     private fun selectTab(id: Int) {
@@ -230,18 +273,16 @@ class MainActivity : AppCompatActivity() {
     /**
      * Alsó sáv:
      *  - alap: Főoldal · Regisztráció · Admin
-     *  - admin bejelentkezve: Admin · + Új ügyfél
-     *  - admin, az Új ügyfél oldalon: csak Admin
+     *  - admin bejelentkezve: Admin · + Új ügyfél · Naptár · Menü
+     *  - admin, az Új ügyfél oldalon: Admin · Naptár · Menü
      */
     private fun updateNav(url: String?) {
         val admin = adminLoggedIn
-        val m = bottomNav.menu
-        m.findItem(R.id.nav_home).isVisible = !admin
-        m.findItem(R.id.nav_account).isVisible = !admin
-        m.findItem(R.id.nav_admin).isVisible = true
-        m.findItem(R.id.nav_new_client).isVisible = admin && !isNewClientUrl(url)
+        applyNavMenu(admin)
+        bottomNav.menu.findItem(R.id.nav_new_client)?.isVisible = !isNewClientUrl(url)
         val want = when {
             accountContainer.isVisible -> R.id.nav_account
+            admin && isCalendarUrl(url) -> R.id.nav_calendar
             isAdminUrl(url) || admin -> R.id.nav_admin
             isRegisterUrl(url) && !prefs.isLoggedIn -> R.id.nav_account
             else -> R.id.nav_home
@@ -264,10 +305,23 @@ class MainActivity : AppCompatActivity() {
         ) { res ->
             val loginPage = res == "true"
             adminLoggedIn = !loginPage
-            if (!loginPage && !isNewClientUrl(url)) lastAdminUrl = url
+            if (!loginPage && !isNewClientUrl(url) && !isCalendarUrl(url)) lastAdminUrl = url
             if (loginPage) lastAdminUrl = null
             updateNav(url)
         }
+    }
+
+    private var navAdminMode: Boolean? = null
+
+    /** Menücsere: vendég (Főoldal · Regisztráció · Admin) ↔ admin (Admin · Új ügyfél · Naptár · Menü). */
+    private fun applyNavMenu(admin: Boolean) {
+        if (navAdminMode == admin) return
+        navAdminMode = admin
+        suppressNav = true
+        bottomNav.menu.clear()
+        bottomNav.inflateMenu(if (admin) R.menu.bottom_nav_admin else R.menu.bottom_nav)
+        suppressNav = false
+        updateAccountLabel()
     }
 
     /** Kijelentkezve "Regisztráció", bejelentkezve "Fiókom". */
