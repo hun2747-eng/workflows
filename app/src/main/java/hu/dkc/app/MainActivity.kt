@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -62,6 +63,17 @@ class MainActivity : AppCompatActivity() {
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
         fileCallback = null
+    }
+
+    // Helymeghatározás a weboldalnak (pl. Új ügyfél → "Helymeghatározás" gomb)
+    private var geoCallback: GeolocationPermissions.Callback? = null
+    private var geoOrigin: String? = null
+    private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        val granted = res.values.any { it }
+        geoCallback?.invoke(geoOrigin, granted, false)
+        geoCallback = null
+        geoOrigin = null
+        if (!granted) Toast.makeText(this, R.string.location_denied, Toast.LENGTH_LONG).show()
     }
 
     private var afterPermission: ((Boolean) -> Unit)? = null
@@ -457,6 +469,7 @@ class MainActivity : AppCompatActivity() {
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
         with(web.settings) {
             javaScriptEnabled = true
+            setGeolocationEnabled(true)
             domStorageEnabled = true
             loadWithOverviewMode = true
             useWideViewPort = true
@@ -516,6 +529,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         web.webChromeClient = object : WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(origin: String?, callback: GeolocationPermissions.Callback) {
+                // Csak a saját (dkc.hu) oldalak kaphatnak helyadatot
+                if (!isOwn(origin?.let { Uri.parse(it) })) { callback.invoke(origin, false, false); return }
+                val fine = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val coarse = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (fine || coarse) { callback.invoke(origin, true, false); return }
+                geoCallback?.invoke(geoOrigin, false, false)
+                geoCallback = callback
+                geoOrigin = origin
+                locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+            }
+
+            override fun onGeolocationPermissionsHidePrompt() {
+                geoCallback = null
+                geoOrigin = null
+            }
+
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 progress.isVisible = newProgress < 100
                 progress.setProgressCompat(newProgress, true)

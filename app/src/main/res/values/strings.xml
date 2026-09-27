@@ -8,6 +8,7 @@
     <string name="admin_url">https://dkc.hu/admin/login</string>
     <string name="nav_new_client">Új ügyfél</string>
     <string name="new_client_url">https://dkc.hu/admin/ugyfel/uj</string>
+    <string name="location_denied">A helymeghatározáshoz engedélyezze a helyhozzáférést az app beállításaiban.</string>
     <string name="nav_calendar">Naptár</string>
     <string name="calendar_url">https://dkc.hu/admin/naptar</string>
     <string name="nav_menu">Menü</string>
