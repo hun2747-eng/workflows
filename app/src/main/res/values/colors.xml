@@ -6,4 +6,5 @@
     <color name="surface">#FFFFFF</color>
     <color name="error">#B3261E</color>
     <color name="ic_bg">#3F5DFA</color>
+    <color name="badge_yellow">#FACC15</color>
 </resources>

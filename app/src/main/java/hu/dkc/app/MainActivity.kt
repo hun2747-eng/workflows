@@ -6,6 +6,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -225,6 +226,12 @@ class MainActivity : AppCompatActivity() {
         accountContainer.isVisible = false
         val js = """
             (function(){
+              var hm = document.querySelector('[data-dkc-menu]');
+              if (hm) {
+                hm.click();
+                setTimeout(function(){ var p = hm.parentElement; if (p) p.scrollIntoView({block:'start', behavior:'smooth'}); }, 80);
+                return 'ok';
+              }
               function vis(e){ return e && e.offsetParent !== null && !e.disabled; }
               var sels = ['[data-drawer-toggle]','[data-drawer-target]','[data-collapse-toggle]',
                 '[aria-controls*="menu" i]','[aria-controls*="sidebar" i]','[aria-controls*="nav" i]',
@@ -250,6 +257,69 @@ class MainActivity : AppCompatActivity() {
                 web.scrollTo(0, 0)
                 Toast.makeText(this, R.string.menu_not_found, Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    /**
+     * Admin oldalon az appban felesleges gombok elrejtése (a weboldal "+ Új ügyfél" és "Menü" gombja
+     * – ezek az alsó sávban vannak), és a Naptár gomb sárga számának kiolvasása.
+     * A "Menü" gomb csak rejtve van (data-dkc-menu), az alsó sáv Menü ikonja ezt kattintja.
+     */
+    private val adminTidyJs = """
+        (function(){
+          function norm(t){ return (t || '').replace(/\s+/g, ' ').trim(); }
+          function tidy(){
+            var els = document.querySelectorAll('a, button, [role=button], summary');
+            for (var i = 0; i < els.length; i++) {
+              var el = els[i], t = norm(el.textContent);
+              if (/^\+?\s*Új ügyfél$/i.test(t)) {
+                el.style.setProperty('display', 'none', 'important');
+                el.setAttribute('data-dkc-hidden', '1');
+              } else if (/^[☰≡]?\s*Men[uü]$/i.test(t)) {
+                el.style.setProperty('display', 'none', 'important');
+                el.setAttribute('data-dkc-menu', '1');
+              }
+            }
+          }
+          tidy();
+          if (!window.__dkcObs) {
+            window.__dkcObs = new MutationObserver(function(){ clearTimeout(window.__dkcT); window.__dkcT = setTimeout(tidy, 50); });
+            window.__dkcObs.observe(document.documentElement, { childList: true, subtree: true });
+          }
+          var c = -1, l = document.querySelectorAll('a, button');
+          for (var j = 0; j < l.length; j++) {
+            var h = l[j].getAttribute('href') || '', m = norm(l[j].textContent).match(/^Naptár\s*(\d+)?$/i);
+            if (m || h.indexOf('/admin/naptar') >= 0 && /^Naptár/i.test(norm(l[j].textContent))) {
+              var d = norm(l[j].textContent).match(/(\d+)$/);
+              c = d ? parseInt(d[1], 10) : 0;
+              break;
+            }
+          }
+          return c;
+        })()
+    """.trimIndent()
+
+    private fun tidyAdminPage(view: WebView) {
+        view.evaluateJavascript(adminTidyJs) { res ->
+            val n = res?.trim('"')?.toDoubleOrNull()?.toInt() ?: return@evaluateJavascript
+            if (n >= 0) { calendarCount = n; applyCalendarBadge() }
+        }
+    }
+
+    private var calendarCount = 0
+
+    /** Sárga szám a Naptár ikonon (mint a weboldalon). */
+    private fun applyCalendarBadge() {
+        if (bottomNav.menu.findItem(R.id.nav_calendar) == null) return
+        if (calendarCount > 0) {
+            bottomNav.getOrCreateBadge(R.id.nav_calendar).apply {
+                number = calendarCount
+                backgroundColor = getColor(R.color.badge_yellow)
+                badgeTextColor = Color.BLACK
+                isVisible = true
+            }
+        } else {
+            bottomNav.removeBadge(R.id.nav_calendar)
         }
     }
 
@@ -322,6 +392,7 @@ class MainActivity : AppCompatActivity() {
         bottomNav.inflateMenu(if (admin) R.menu.bottom_nav_admin else R.menu.bottom_nav)
         suppressNav = false
         updateAccountLabel()
+        applyCalendarBadge()
     }
 
     /** Kijelentkezve "Regisztráció", bejelentkezve "Fiókom". */
@@ -417,11 +488,16 @@ class MainActivity : AppCompatActivity() {
                 offline.isVisible = false
             }
 
+            override fun onPageCommitVisible(view: WebView, url: String?) {
+                if (isAdminUrl(url)) tidyAdminPage(view)
+            }
+
             override fun onPageFinished(view: WebView, url: String?) {
                 swipe.isRefreshing = false
                 progress.isVisible = false
                 CookieManager.getInstance().flush()
                 checkAdminState(view, url)
+                if (isAdminUrl(url)) tidyAdminPage(view)
                 if (isOwn(url?.let { Uri.parse(it) }) && !isAdminUrl(url)) {
                     // Az appban nem kell az admin belépés link
                     view.evaluateJavascript(
