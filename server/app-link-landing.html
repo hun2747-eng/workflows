@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DKC.HU alkalmazás</title>
+<!--
+  Ezt az oldalt kell kiszolgálni a https://dkc.hu/app/belepes és https://dkc.hu/app/ajanlas címen
+  (ugyanaz a fájl mindkettőhöz, a query string – ?uuid=… / ?ref=… – változatlanul marad).
+
+  Ha a telefon nem nyitja meg magától az appot (pl. az assetlinks.json még nem frissült, vagy a
+  Gmail beépített böngészője nyitotta meg a linket), Androidon egy intent:// linkkel közvetlenül
+  a telepített DKC.HU appot indítjuk el, ugyanazzal a linkkel. Ha az app nincs telepítve, marad ez az oldal.
+-->
+<style>
+  body{font-family:Arial,sans-serif;text-align:center;padding:60px 20px;color:#333;margin:0}
+  .btn{display:inline-block;margin:8px;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:bold}
+  .primary{background:#155DFC;color:#fff}
+  .dark{background:#111;color:#fff}
+  #open{display:none}
+</style>
+</head>
+<body>
+  <p>Nyisd meg ezt a linket a DKC.HU alkalmazásban.</p>
+  <p><a id="open" class="btn primary" href="#">Megnyitás az alkalmazásban</a></p>
+  <p style="margin-top:24px">Még nincs telepítve?</p>
+  <p><a class="btn dark" href="https://play.google.com/store/apps/details?id=hu.dkc.app">Google Play</a></p>
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  if (!/Android/i.test(ua) || /DKCApp/.test(ua)) return;   // csak Androidon, és nem az appon belül
+  var intent = 'intent://' + location.host + location.pathname + location.search +
+               '#Intent;scheme=https;package=hu.dkc.app;end';
+  var a = document.getElementById('open');
+  a.href = intent;
+  a.style.display = 'inline-block';
+  // automatikus megnyitás (ha a böngésző engedi); különben a gomb marad
+  setTimeout(function () { location.href = intent; }, 50);
+})();
+</script>
+</body>
+</html>

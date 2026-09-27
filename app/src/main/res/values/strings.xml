@@ -9,6 +9,10 @@
     <string name="nav_new_client">Új ügyfél</string>
     <string name="new_client_url">https://dkc.hu/admin/ugyfel/uj</string>
     <string name="location_denied">A helymeghatározáshoz engedélyezze a helyhozzáférést az app beállításaiban.</string>
+    <string name="links_title">Linkek megnyitása az appban</string>
+    <string name="links_text">Hogy az e-mailben kapott belépési és ajánlói linkek (dkc.hu) ebben az appban nyíljanak meg, a következő képernyőn kapcsolja be a „Támogatott linkek megnyitása” opciót, és jelölje be a dkc.hu címet.</string>
+    <string name="links_open_settings">Beállítás</string>
+    <string name="links_later">Később</string>
     <string name="nav_calendar">Naptár</string>
     <string name="calendar_url">https://dkc.hu/admin/naptar</string>
     <string name="nav_menu">Menü</string>

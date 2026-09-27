@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         account = AccountPane(this, accountContainer)
         PushHelper.createChannel(this)
+        checkLinkHandling()
 
         bottomNav.setOnItemSelectedListener { item ->
             if (!suppressNav) when (item.itemId) {
@@ -431,6 +432,40 @@ class MainActivity : AppCompatActivity() {
     fun onLoggedOut() {
         updateAccountLabel()
         account.render()
+    }
+
+    // ---------------------------------------------------------------- dkc.hu linkek az appban
+
+    /**
+     * Android 12+: az e-mailben kapott https://dkc.hu/app/... linkeket csak akkor nyitja meg a rendszer
+     * az appban, ha a domain ellenőrzött (assetlinks.json) vagy a felhasználó engedélyezte.
+     * Ha egyik sem, egyszer (verziónként) felajánljuk a beállítás megnyitását.
+     */
+    private fun checkLinkHandling() {
+        if (Build.VERSION.SDK_INT < 31) return
+        val sp = getSharedPreferences("dkc_prefs", MODE_PRIVATE)
+        if (sp.getInt("links_asked_version", 0) == BuildConfig.VERSION_CODE) return
+        val ok = try {
+            val m = getSystemService(android.content.pm.verify.domain.DomainVerificationManager::class.java)
+            val st = m?.getDomainVerificationUserState(packageName)
+            val s = st?.hostToStateMap?.get("dkc.hu")
+            s == android.content.pm.verify.domain.DomainVerificationUserState.DOMAIN_STATE_VERIFIED ||
+                s == android.content.pm.verify.domain.DomainVerificationUserState.DOMAIN_STATE_SELECTED
+        } catch (_: Exception) { true }
+        if (ok) return
+        sp.edit().putInt("links_asked_version", BuildConfig.VERSION_CODE).apply()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.links_title)
+            .setMessage(R.string.links_text)
+            .setPositiveButton(R.string.links_open_settings) { _, _ ->
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS, Uri.parse("package:$packageName")))
+                } catch (_: Exception) {
+                    startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                }
+            }
+            .setNegativeButton(R.string.links_later, null)
+            .show()
     }
 
     // ---------------------------------------------------------------- push permission
